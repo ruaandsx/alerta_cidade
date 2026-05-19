@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "AlertaCidade",
+    "slug": "alerta-cidade",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "splash": { "backgroundColor": "#E53935" },
+    "android": { "permissions": ["ACCESS_FINE_LOCATION", "CAMERA"] }
+  }
+}
