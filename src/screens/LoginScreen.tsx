@@ -38,7 +38,7 @@ export default function LoginScreen({ navigation }: Props) {
             <Text style={styles.buttonText}>Entrar com telefone</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('LoginSucesso')} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => navigation.navigate('LoginSuccess')} activeOpacity={0.7}>
             <Text style={styles.guestText}>Entrar como convidado</Text>
           </TouchableOpacity>
         </View>

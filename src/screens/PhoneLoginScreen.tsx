@@ -47,11 +47,11 @@ export default function PhoneLoginScreen({ navigation }: Props) {
               <Text style={styles.fieldLabel}>Digite sua senha</Text>
               <View style={styles.inputRow}>
                 <Text style={styles.fieldIcon}>🔒</Text>
-                <TextInput style={styles.input} value={senha} onChangeText={setSenha} secureTextEntry returnKeyType="done" onSubmitEditing={() => navigation.navigate('LoginSucesso')} onFocus={() => setFocused('senha')} onBlur={() => setFocused(null)} />
+                <TextInput style={styles.input} value={senha} onChangeText={setSenha} secureTextEntry returnKeyType="done" onSubmitEditing={() => navigation.navigate('LoginSuccess')} onFocus={() => setFocused('senha')} onBlur={() => setFocused(null)} />
               </View>
             </View>
 
-            <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('LoginSucesso')} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('LoginSuccess')} activeOpacity={0.85}>
               <Text style={styles.buttonText}>Entrar</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('EsqueciSenha')} activeOpacity={0.7} style={styles.forgotWrapper}>

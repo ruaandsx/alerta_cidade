@@ -43,7 +43,7 @@ export default function AboutScreen({ navigation }: Props) {
         {/* Logo */}
         <View style={styles.logoWrapper}>
           <Image
-            source={require('../assets/logo.png')}
+            source={require('../../assets/logo.png')}
             style={styles.logoImage}
             resizeMode="contain"
           />
