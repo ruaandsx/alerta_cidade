@@ -35,7 +35,7 @@ export default function LoginScreen({ navigation }: any) {
         <Text style={styles.buttonText}>{carregando ? 'Entrando...' : 'Entrar'}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation?.navigate?.('Register')}>
+      <TouchableOpacity onPress={() => navigation?.navigate?.('Cadastro')}>
         <Text style={styles.link}>Criar conta</Text>
       </TouchableOpacity>
     </View>
