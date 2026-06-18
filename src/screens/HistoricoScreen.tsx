@@ -1,55 +1,101 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   StatusBar, SafeAreaView, ScrollView,
 } from 'react-native';
 
+import { listarOcorrencias, Ocorrencia } from '../services/ocorrenciaService';
+
 type Props = { navigation?: any };
 
-const ocorrencias = [
-  {
-    titulo: 'Esgoto na rua',
-    endereco: 'Rua das flores, 55',
-    status: 'Publicado',
-    grau: 'Grau médio',
-    grauCor: '#f59e0b',
-    data: '03/04/2026',
-    emoji: '🚧',
-    bg: '#d4a373',
-  },
-  {
-    titulo: 'Lixo acumulado',
-    endereco: 'Avenida Magalhães, 128',
-    status: 'Publicado',
-    grau: 'Grau alto',
-    grauCor: '#ef4444',
-    data: '10/04/2026',
-    emoji: '🗑️',
-    bg: '#6b7280',
-  },
-  {
-    titulo: 'Buraco na via',
-    endereco: 'BR232',
-    status: 'Publicado',
-    grau: 'Grau médio',
-    grauCor: '#f59e0b',
-    data: '13/04/2026',
-    emoji: '🛣️',
-    bg: '#92a0a8',
-  },
-  {
-    titulo: 'Poste queimado',
-    endereco: 'Rua da paz, 78',
-    status: 'Publicado',
-    grau: 'Grau baixo',
-    grauCor: '#22c55e',
-    data: '15/04/2026',
-    emoji: '💡',
-    bg: '#1a1a2e',
-  },
-];
 
 export default function HistoricoScreen({ navigation }: Props) {
+  const [ocorrencias, setOcorrencias] = useState<any[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    carregarHistorico();
+
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      carregarHistorico();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  async function carregarHistorico() {
+    try {
+      setCarregando(true);
+      const data = await listarOcorrencias();
+
+      const formatadas = data.map((item: Ocorrencia) => ({
+        id: item.id,
+        titulo: formatarTitulo(item.categoria),
+        endereco: `${item.rua || ''}${item.bairro ? ', ' + item.bairro : ''}`,
+        status: formatarStatus(item.status),
+        grau: formatarUrgencia(item.urgencia),
+        grauCor: corUrgencia(item.urgencia),
+        data: item.dataCriacao ? new Date(item.dataCriacao).toLocaleDateString('pt-BR') : '',
+        emoji: emojiCategoria(item.categoria),
+        bg: bgCategoria(item.categoria),
+        original: item,
+      }));
+
+      setOcorrencias(formatadas);
+    } catch (error) {
+      console.log('Erro ao carregar histórico:', error);
+      setOcorrencias([]);
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  function formatarTitulo(categoria?: string) {
+    if (categoria === 'ILUMINACAO') return 'Iluminação pública';
+    if (categoria === 'SAUDE_PUBLICA') return 'Saúde pública';
+    if (categoria === 'TRANSITO') return 'Trânsito';
+    if (categoria === 'INFRAESTRUTURA') return 'Infraestrutura';
+    if (categoria === 'LIMPEZA') return 'Limpeza urbana';
+    return 'Ocorrência';
+  }
+
+  function formatarStatus(status?: string) {
+    if (status === 'RECEBIDO') return 'Recebido';
+    if (status === 'EM_ANALISE') return 'Em análise';
+    if (status === 'RESOLVIDO') return 'Resolvido';
+    return 'Recebido';
+  }
+
+  function formatarUrgencia(urgencia?: string) {
+    if (urgencia === 'ALTA') return 'Grau alto';
+    if (urgencia === 'MEDIA') return 'Grau médio';
+    return 'Grau baixo';
+  }
+
+  function corUrgencia(urgencia?: string) {
+    if (urgencia === 'ALTA') return '#ef4444';
+    if (urgencia === 'MEDIA') return '#f59e0b';
+    return '#22c55e';
+  }
+
+  function emojiCategoria(categoria?: string) {
+    if (categoria === 'ILUMINACAO') return '💡';
+    if (categoria === 'SAUDE_PUBLICA') return '🏥';
+    if (categoria === 'TRANSITO') return '🚦';
+    if (categoria === 'INFRAESTRUTURA') return '🛣️';
+    if (categoria === 'LIMPEZA') return '🗑️';
+    return '📍';
+  }
+
+  function bgCategoria(categoria?: string) {
+    if (categoria === 'ILUMINACAO') return '#1a1a2e';
+    if (categoria === 'SAUDE_PUBLICA') return '#ef4444';
+    if (categoria === 'TRANSITO') return '#f59e0b';
+    if (categoria === 'INFRAESTRUTURA') return '#92a0a8';
+    if (categoria === 'LIMPEZA') return '#6b7280';
+    return '#7ec8e3';
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -68,11 +114,23 @@ export default function HistoricoScreen({ navigation }: Props) {
         <Text style={styles.sectionTitle}>Minhas ocorrências</Text>
 
         {/* Lista de ocorrências */}
+        {carregando && (
+          <Text style={{ textAlign: 'center', color: '#64748b', marginVertical: 20 }}>
+            Carregando histórico...
+          </Text>
+        )}
+
+        {!carregando && ocorrencias.length === 0 && (
+          <Text style={{ textAlign: 'center', color: '#64748b', marginVertical: 20 }}>
+            Nenhuma ocorrência encontrada.
+          </Text>
+        )}
+
         {ocorrencias.map((item, index) => (
           <TouchableOpacity
             key={index}
             style={styles.card}
-            onPress={() => navigation?.navigate('ReportDetail', { item })}
+            onPress={() => navigation?.navigate('ReportDetail', { item: item.original || item })}
             activeOpacity={0.8}
           >
             {/* Imagem/thumbnail */}

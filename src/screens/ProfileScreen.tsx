@@ -3,20 +3,27 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   StatusBar, SafeAreaView, ScrollView,
 } from 'react-native';
+import { useUsuarioLogado } from '../hooks/useUsuarioLogado';
+import { logout } from '../services/authService';
 
 type Props = { navigation?: any };
 
 export default function ProfileScreen({ navigation }: Props) {
-  const usuario = {
-    nome: 'Paulo Henrique',
-    email: 'pauloph09@gmail.com',
-  };
+  const { usuario } = useUsuarioLogado();
+
+  async function handleLogout() {
+    await logout();
+    navigation?.reset?.({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  }
 
   const menuItems = [
     { icon: '👤', label: 'Meus dados',              rota: 'MeusDados' },
     { icon: '🕐', label: 'Historico de ocorrência', rota: 'Historico' },
     { icon: '❓', label: 'Ajuda e suporte',          rota: 'Ajuda' },
-    { icon: 'ℹ️', label: 'Sobre o ObervaCidade',    rota: 'Sobre' },
+    { icon: 'ℹ️', label: 'Sobre o ObservaCidade',    rota: 'SobreObservaCidade' },
   ];
 
   return (
@@ -43,8 +50,8 @@ export default function ProfileScreen({ navigation }: Props) {
         </View>
 
         {/* Nome e e-mail */}
-        <Text style={styles.nome}>{usuario.nome}</Text>
-        <Text style={styles.email}>{usuario.email}</Text>
+        <Text style={styles.nome}>{usuario?.nome || 'Usuário'}</Text>
+<Text style={styles.email}>{usuario?.email || ''}</Text>  
 
         {/* Menu */}
         <View style={styles.menuList}>
@@ -67,7 +74,7 @@ export default function ProfileScreen({ navigation }: Props) {
         {/* Botão Sair */}
         <TouchableOpacity
           style={styles.sairButton}
-          onPress={() => navigation?.navigate('Welcome')}
+          onPress={handleLogout}
           activeOpacity={0.85}
         >
           <Text style={styles.sairText}>Sair</Text>

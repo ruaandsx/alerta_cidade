@@ -77,7 +77,7 @@ export default function ReportSuccessScreen({ navigation }: Props) {
           <View style={styles.acompanharText}>
             <Text style={styles.acompanharTitle}>Acompanhe sua ocorrência</Text>
             <Text style={styles.acompanharDesc}>
-              Você pode acompanhar o atendimento{'\n'}desta denúncia na seção{' '}
+              Você pode acompanhar o atendimento{'\n'}desta ocorrência na seção{' '}
               <Text style={styles.acompanharLink}>"Minhas ocorrência"</Text>
               {' '}.
             </Text>

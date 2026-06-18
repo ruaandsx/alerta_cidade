@@ -1,103 +1,49 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TouchableOpacity, StyleSheet, StatusBar,
-  SafeAreaView, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image,
-} from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { cadastrar } from '../services/authService';
 
-type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'Cadastro'> };
-
-export default function RegisterScreen({ navigation }: Props) {
+export default function RegisterScreen({ navigation }: any) {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [confirmar, setConfirmar] = useState('');
-  const [focused, setFocused] = useState<string | null>(null);
+  const [carregando, setCarregando] = useState(false);
 
-  const handleCadastrar = () => {
-    if (!nome || !email || !senha || !confirmar) return;
-    if (senha !== confirmar) return;
-    navigation.navigate('CadastroSucesso', { email });
-  };
+  async function criarConta() {
+    try {
+      setCarregando(true);
+      await cadastrar(nome, email, senha);
+      navigation?.replace?.('Home');
+    } catch (e: any) {
+      Alert.alert('Erro ao cadastrar', e.message || 'Não foi possível criar a conta.');
+    } finally {
+      setCarregando(false);
+    }
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#7ec8e3" />
-      <KeyboardAvoidingView style={{ flex: 1, width: '100%' }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <View style={styles.logoWrapper}>
-            <Image source={require('../../assets/logo.png')} style={styles.logoImage} resizeMode="contain" />
-          </View>
-          <View style={styles.titleRow}>
-            <Text style={styles.titleBlue}>Bem-</Text>
-            <Text style={styles.titleGold}>vindo!</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Criar conta</Text>
-            <Text style={styles.cardSubtitle}>Preenchar os dados para continuar</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Criar conta</Text>
 
-            {[
-              { key: 'nome',     placeholder: 'Nome completo', icon: '👤', value: nome,     set: setNome,     secure: false, keyboard: 'default' as const },
-              { key: 'email',    placeholder: 'E-mail',        icon: '✉️', value: email,    set: setEmail,    secure: false, keyboard: 'email-address' as const },
-              { key: 'senha',    placeholder: 'Senha',         icon: '🔒', value: senha,    set: setSenha,    secure: true,  keyboard: 'default' as const },
-              { key: 'confirmar',placeholder: 'Confirmar senha',icon: '🔒',value: confirmar, set: setConfirmar,secure: true,  keyboard: 'default' as const },
-            ].map((f) => (
-              <View key={f.key} style={[styles.inputWrapper, focused === f.key && styles.inputWrapperFocused]}>
-                <View style={styles.iconBox}><Text style={styles.iconEmoji}>{f.icon}</Text></View>
-                <TextInput
-                  style={styles.input}
-                  placeholder={f.placeholder}
-                  placeholderTextColor="#555"
-                  value={f.value}
-                  onChangeText={f.set}
-                  secureTextEntry={f.secure}
-                  keyboardType={f.keyboard}
-                  autoCapitalize={f.key === 'nome' ? 'words' : 'none'}
-                  onFocus={() => setFocused(f.key)}
-                  onBlur={() => setFocused(null)}
-                />
-              </View>
-            ))}
+      <TextInput style={styles.input} placeholder="Nome" value={nome} onChangeText={setNome} />
+      <TextInput style={styles.input} placeholder="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
+      <TextInput style={styles.input} placeholder="Senha" value={senha} onChangeText={setSenha} secureTextEntry />
 
-            <TouchableOpacity style={styles.button} onPress={handleCadastrar} activeOpacity={0.85}>
-              <Text style={styles.buttonText}>Cadastrar</Text>
-            </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={criarConta} disabled={carregando}>
+        <Text style={styles.buttonText}>{carregando ? 'Criando...' : 'Cadastrar'}</Text>
+      </TouchableOpacity>
 
-            <View style={styles.loginRow}>
-              <Text style={styles.loginText}>Já tem uma conta? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')} activeOpacity={0.7}>
-                <Text style={styles.loginLink}>Entrar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-      <View style={styles.homeIndicator} />
-    </SafeAreaView>
+      <TouchableOpacity onPress={() => navigation?.navigate?.('Login')}>
+        <Text style={styles.link}>Já tenho conta</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container:           { flex: 1, backgroundColor: '#7ec8e3', alignItems: 'center' },
-  scroll:              { flexGrow: 1, alignItems: 'center', paddingBottom: 24 },
-  logoWrapper:         { marginTop: 20, marginBottom: 8 },
-  logoImage:           { width: 150, height: 150 },
-  titleRow:            { flexDirection: 'row', alignItems: 'baseline', marginBottom: 20 },
-  titleBlue:           { fontSize: 34, fontWeight: '800', color: '#1565c0', fontStyle: 'italic', letterSpacing: -0.5 },
-  titleGold:           { fontSize: 34, fontWeight: '800', color: '#c8860a', fontStyle: 'italic', letterSpacing: -0.5 },
-  card:                { width: '92%', backgroundColor: '#fff', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
-  cardTitle:           { fontSize: 20, fontWeight: '700', color: '#1a1a2e', marginBottom: 4 },
-  cardSubtitle:        { fontSize: 13, color: '#64748b', marginBottom: 20 },
-  inputWrapper:        { flexDirection: 'row', alignItems: 'center', backgroundColor: '#b8e0f0', borderRadius: 12, marginBottom: 14, borderWidth: 1.5, borderColor: 'transparent', overflow: 'hidden' },
-  inputWrapperFocused: { borderColor: '#1565c0' },
-  iconBox:             { width: 46, height: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: '#9fd4ea' },
-  iconEmoji:           { fontSize: 18 },
-  input:               { flex: 1, height: 50, paddingHorizontal: 14, fontSize: 15, color: '#1a1a2e', fontWeight: '500' },
-  button:              { backgroundColor: '#5bb8d4', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 6, marginBottom: 18, elevation: 4 },
-  buttonText:          { fontSize: 17, fontWeight: '700', color: '#fff' },
-  loginRow:            { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  loginText:           { fontSize: 14, fontWeight: '600', color: '#1a1a2e' },
-  loginLink:           { fontSize: 14, fontWeight: '700', color: '#1565c0', textDecorationLine: 'underline' },
-  homeIndicator:       { width: 120, height: 5, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.2)', marginBottom: 8, marginTop: 4 },
+  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
+  title: { fontSize: 28, fontWeight: '800', marginBottom: 24, color: '#1a1a2e' },
+  input: { height: 48, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, paddingHorizontal: 12, marginBottom: 12 },
+  button: { backgroundColor: '#1565c0', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  link: { textAlign: 'center', color: '#1565c0', marginTop: 18, fontWeight: '600' },
 });

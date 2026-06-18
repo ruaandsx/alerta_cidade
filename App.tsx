@@ -2,6 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+
 // ── Telas de autenticação ──────────────────────────────────────────────────────
 import WelcomeScreen              from './src/screens/WelcomeScreen';
 import LoginScreen                from './src/screens/LoginScreen';
@@ -21,6 +22,10 @@ import MyDataScreen               from './src/screens/MyDataScreen';
 import HistoricoScreen            from './src/screens/HistoricoScreen';
 import SupportScreen              from './src/screens/SupportScreen';
 import AboutScreen                from './src/screens/AboutScreen';
+import NotificationScreen from './src/screens/NotificationScreen';
+import HelpSupportScreen from './src/screens/HelpSupportScreen';
+import ReportDetailScreen from './src/screens/ReportDetailScreen';
+
 
 // ── Telas do administrador ─────────────────────────────────────────────────────
 import AdminHomeScreen            from './src/screens/AdminHomeScreen';
@@ -46,17 +51,19 @@ export default function App() {
         <Stack.Screen name="PhoneLogin"     component={PhoneLoginScreen} />
         <Stack.Screen name="Cadastro"       component={RegisterScreen} />
         <Stack.Screen name="EsqueciSenha"   component={ForgotPasswordPhoneScreen} />
-        <Stack.Screen name="CadastroSucesso" component={RegisterSuccessScreen} />
-        <Stack.Screen name="LoginSucesso"   component={LoginSuccessScreen} />
+        <Stack.Screen name="CadastroSucess" component={RegisterSuccessScreen} />
+        <Stack.Screen name="LoginSucess"   component={LoginSuccessScreen} />
 
         {/* ── USUÁRIO COMUM ── */}
         <Stack.Screen name="Home"           component={HomeScreen} />
         <Stack.Screen name="NewReport"      component={NewReportScreen} />
         <Stack.Screen name="ReportSuccess"  component={ReportSuccessScreen} />
+        <Stack.Screen name="ReportDetail"   component={ReportDetailScreen} />
         <Stack.Screen name="Profile"        component={ProfileScreen} />
         <Stack.Screen name="MeusDados"      component={MyDataScreen} />
         <Stack.Screen name="Historico"      component={HistoricoScreen} />
-        <Stack.Screen name="Ajuda"          component={SupportScreen} />
+        <Stack.Screen name="Notification" component={NotificationScreen} />
+        <Stack.Screen name="Ajuda" component={HelpSupportScreen} />
         <Stack.Screen name="SobreObservaCidade" component={AboutScreen} />
 
         {/* ── ADMINISTRADOR ── */}

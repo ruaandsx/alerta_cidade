@@ -93,7 +93,7 @@ function BottomNav({ navigation }: { navigation?: any }) {
         activeOpacity={0.7}
       >
         <Text style={styles.navIcon}>📋</Text>
-        <Text style={styles.navLabel}>Denúncias</Text>
+        <Text style={styles.navLabel}>Ocorrências</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.navItemCenter} activeOpacity={0.7}>
         <Text style={styles.navPlus}>+</Text>

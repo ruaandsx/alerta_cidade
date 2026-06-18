@@ -1,18 +1,43 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   StatusBar, SafeAreaView, ScrollView, TextInput,
 } from 'react-native';
 
+import { useUsuarioLogado } from '../hooks/useUsuarioLogado';
+import { atualizarUsuarioLogado } from '../services/authService';
+
 type Props = { navigation?: any };
 
 export default function MyDataScreen({ navigation }: Props) {
-  const [nome, setNome] = useState('Paulo Henrique');
-  const [email, setEmail] = useState('pauloph09@gmail.com');
-  const [telefone, setTelefone] = useState('(81)4002-8922');
-  const [nascimento, setNascimento] = useState('22/09/2000');
-  const [cidade, setCidade] = useState('Surubim');
+  const { usuario } = useUsuarioLogado();
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [nascimento, setNascimento] = useState('');
+  const [cidade, setCidade] = useState('');
   const [focused, setFocused] = useState('');
+  
+
+  useEffect(() => {
+    if (usuario) {
+      setNome(usuario.nome || '');
+      setEmail(usuario.email || '');
+      setTelefone(usuario.telefone || '');
+      setNascimento(usuario.nascimento || '');
+      setCidade(usuario.cidade || '');
+    }
+  }, [usuario]);
+
+  async function salvarDados() {
+    try {
+      await atualizarUsuarioLogado({ nome, telefone, nascimento, cidade });
+      alert('Dados salvos com sucesso!');
+    } catch (error) {
+      console.log(error);
+      alert('Erro ao salvar dados.');
+    }
+  }
 
   const campos = [
     { key: 'nome',       label: 'Nome completo',    icon: '👤', value: nome,       set: setNome,       keyboard: 'default' as const },
@@ -53,14 +78,14 @@ export default function MyDataScreen({ navigation }: Props) {
             </TouchableOpacity>
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>Paulo Henrique</Text>
+            <Text style={styles.profileName}>{nome || 'Usuário'}</Text>
             <View style={styles.profileRow}>
               <Text style={styles.profileIcon}>✉️</Text>
-              <Text style={styles.profileText}>pauloph09@gmail.com</Text>
+              <Text style={styles.profileText}>{email || 'email não informado'}</Text>
             </View>
             <View style={styles.profileRow}>
               <Text style={styles.profileIcon}>📞</Text>
-              <Text style={styles.profileText}>(81)4002-8922</Text>
+              <Text style={styles.profileText}>{telefone || 'telefone não informado'}</Text>
             </View>
           </View>
         </View>
@@ -89,7 +114,7 @@ export default function MyDataScreen({ navigation }: Props) {
         </View>
 
         {/* Botão salvar */}
-        <TouchableOpacity style={styles.saveButton} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.saveButton} onPress={salvarDados} activeOpacity={0.85}>
           <Text style={styles.saveText}>Salvar alteração</Text>
         </TouchableOpacity>
 
