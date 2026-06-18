@@ -54,3 +54,39 @@ backup_*/
 
 # Arquivos locais
 *.log
+# Maven
+target/
+
+# Logs
+*.log
+
+# IDE IntelliJ
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Eclipse / STS
+.classpath
+.project
+.settings/
+.factorypath
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# Variáveis de ambiente
+.env
+
+# Arquivos locais
+application-local.properties
+application-dev.properties
+
+# Maven Wrapper logs
+.mvn/wrapper/maven-wrapper.jar.log
