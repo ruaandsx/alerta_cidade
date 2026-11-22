@@ -1,8 +1,6 @@
 import React from 'react';
-import {
-  View, Text, TouchableOpacity, StyleSheet,
-  StatusBar, SafeAreaView, ScrollView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUsuarioLogado } from '../hooks/useUsuarioLogado';
 import { logout } from '../services/authService';
@@ -28,7 +26,7 @@ export default function AdminProfileScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#7ec8e3" />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation?.goBack()}>

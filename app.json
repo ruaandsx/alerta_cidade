@@ -1,10 +1,63 @@
 {
   "expo": {
-    "name": "AlertaCidade",
-    "slug": "alerta-cidade",
+    "name": "Observa Cidade",
+    "slug": "observa-cidade",
     "version": "1.0.0",
     "orientation": "portrait",
-    "splash": { "backgroundColor": "#E53935" },
-    "android": { "permissions": ["ACCESS_FINE_LOCATION", "CAMERA"] }
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.observacidade.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "O Observa Cidade usa a câmera para fotografar a ocorrência.",
+        "NSPhotoLibraryUsageDescription": "O Observa Cidade acessa suas fotos para anexar à ocorrência.",
+        "NSLocationWhenInUseUsageDescription": "O Observa Cidade usa sua localização para registrar onde a ocorrência aconteceu."
+      }
+    },
+    "android": {
+      "package": "br.com.observacidade.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#7ec8e3"
+      }
+    },
+    "plugins": [
+      "expo-image-picker",
+      "expo-location",
+      "expo-secure-store",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#7ec8e3",
+          "imageWidth": 200
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "apiPort": 8080,
+      "apiUrl": "http://192.168.0.10:8080",
+      "apiUrlRemota": "https://api.trycloudflare.com"
+    }
   }
 }

@@ -4,12 +4,18 @@ node_modules/
 # Expo
 .expo/
 .expo-shared/
+.cache/
 
 # Build
 dist/
 build/
 
+# Pastas nativas geradas pelo `expo prebuild`
+android/
+ios/
+
 # Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -25,15 +31,10 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# VS Code
+# Editores
 .vscode/
-
-# Android
-android/.gradle/
-android/app/build/
-
-# iOS
-ios/build/
+.idea/
+*.iml
 
 # TypeScript
 *.tsbuildinfo
@@ -41,52 +42,8 @@ ios/build/
 # Coverage
 coverage/
 
-# Arquivos temporários
+# Temporários e backups
 *.tmp
 *.temp
-
-# Backups
 backup_*/
 *.bak
-
-# Expo cache
-.cache/
-
-# Arquivos locais
-*.log
-# Maven
-target/
-
-# Logs
-*.log
-
-# IDE IntelliJ
-.idea/
-*.iml
-
-# VS Code
-.vscode/
-
-# Eclipse / STS
-.classpath
-.project
-.settings/
-.factorypath
-
-# Sistema
-.DS_Store
-Thumbs.db
-
-# Arquivos temporários
-*.tmp
-*.temp
-
-# Variáveis de ambiente
-.env
-
-# Arquivos locais
-application-local.properties
-application-dev.properties
-
-# Maven Wrapper logs
-.mvn/wrapper/maven-wrapper.jar.log

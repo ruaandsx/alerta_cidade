@@ -1,34 +1,51 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Image,
-  StatusBar,
-  SafeAreaView,
-  ScrollView,
-  TextInput,
-  Alert,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, StatusBar, ScrollView, TextInput, Alert, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   listarOcorrencias,
-  Ocorrencia,
   listarComentarios,
   criarComentario,
   deletarOcorrencia,
+  Ocorrencia,
+  tituloCategoria,
+  emojiCategoria,
+  enderecoOcorrencia,
+  rotuloUrgencia,
+  corUrgencia,
+  rotuloStatus,
+  corStatus,
 } from '../services/ocorrenciaService';
+import { fonteImagem, FonteImagem } from '../services/api';
+import { getUsuarioLogado } from '../services/auth';
 
 type Props = { navigation?: any };
 
 export default function HomeScreen({ navigation }: Props) {
-  const [feed, setFeed] = useState<any[]>([]);
+  const [feed, setFeed] = useState<Ocorrencia[]>([]);
+  const [imagens, setImagens] = useState<Record<number, FonteImagem | null>>({});
+  const [imagensComFalha, setImagensComFalha] = useState<Record<number, boolean>>({});
+  const [usuario, setUsuario] = useState<{ id?: number; role?: string } | null>(null);
   const [carregandoFeed, setCarregandoFeed] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
   const [comentarios, setComentarios] = useState<{ [key: number]: string }>({});
-  const [comentariosPorOcorrencia, setComentariosPorOcorrencia] = useState<{ [key: number]: any[] }>({});
+  const [comentariosPorOcorrencia, setComentariosPorOcorrencia] = useState<{
+    [key: number]: any[];
+  }>({});
+
+  const ehAdmin = usuario?.role === 'ADMIN';
+
+  function podeGerenciar(item: Ocorrencia): boolean {
+    if (ehAdmin) return true;
+    if (!usuario?.id || !item.usuarioId) return false;
+    return item.usuarioId === usuario.id;
+  }
 
   useEffect(() => {
+    getUsuarioLogado()
+      .then((u) => setUsuario(u ? { id: u.id, role: u.role } : null))
+      .catch(() => setUsuario(null));
+
     carregarFeed();
 
     const unsubscribe = navigation?.addListener?.('focus', () => {
@@ -42,33 +59,32 @@ export default function HomeScreen({ navigation }: Props) {
     try {
       if (mostrarLoading) setCarregandoFeed(true);
 
-      const ocorrencias = await listarOcorrencias();
+      const ocorrencias = await listarOcorrencias({ size: 50 });
 
-      const feedFormatado = (ocorrencias || []).map((item: Ocorrencia) => ({
-        id: item.id,
-        titulo: formatarTitulo(item.categoria),
-        descricao: item.descricao,
-        imagemBase64: item.imagemBase64,
-        endereco: montarEndereco(item),
-        grau: formatarUrgencia(item.urgencia),
-        grauCor: corUrgencia(item.urgencia),
-        data: item.dataCriacao ? new Date(item.dataCriacao).toLocaleDateString('pt-BR') : '',
-        emoji: emojiCategoria(item.categoria),
-        bg: bgCategoria(item.categoria),
-        original: item,
-      }));
+      setFeed(ocorrencias);
 
-      setFeed(feedFormatado);
-      carregarComentariosDasOcorrencias(feedFormatado);
+      const entradas = await Promise.all(
+        ocorrencias
+          .filter((item) => item.id && item.temImagem)
+          .map(async (item) => {
+            const fonte = await fonteImagem(item.id, item.temImagem);
+            return [item.id as number, fonte] as const;
+          }),
+      );
+
+      setImagens(Object.fromEntries(entradas));
+
+      carregarComentariosDasOcorrencias(ocorrencias);
     } catch (error) {
       console.log('Erro ao carregar feed:', error);
       setFeed([]);
     } finally {
       setCarregandoFeed(false);
+      setAtualizando(false);
     }
   }
 
-  async function carregarComentariosDasOcorrencias(lista: any[]) {
+  async function carregarComentariosDasOcorrencias(lista: Ocorrencia[]) {
     const resultado: { [key: number]: any[] } = {};
 
     await Promise.all(
@@ -80,7 +96,7 @@ export default function HomeScreen({ navigation }: Props) {
         } catch {
           resultado[item.id] = [];
         }
-      })
+      }),
     );
 
     setComentariosPorOcorrencia(resultado);
@@ -96,99 +112,60 @@ export default function HomeScreen({ navigation }: Props) {
 
     try {
       await criarComentario(ocorrenciaId, texto.trim());
-      setComentarios(prev => ({ ...prev, [ocorrenciaId]: '' }));
+      setComentarios((prev) => ({ ...prev, [ocorrenciaId]: '' }));
 
       const novosComentarios = await listarComentarios(ocorrenciaId);
-      setComentariosPorOcorrencia(prev => ({
+      setComentariosPorOcorrencia((prev) => ({
         ...prev,
         [ocorrenciaId]: novosComentarios,
       }));
-    } catch (error) {
-      console.log('Erro ao enviar comentário:', error);
-      Alert.alert('Erro', 'Não foi possível enviar o comentário.');
+    } catch (error: any) {
+      Alert.alert('Erro', error?.message || 'Não foi possível enviar o comentário.');
     }
   }
 
-  function abrirMenuOcorrencia(item: any) {
-    Alert.alert(
-      'Ocorrência',
-      item.descricao || 'Sem descrição informada.',
-      [
-        {
-          text: 'Ver detalhes',
-          onPress: () => navigation?.navigate('ReportDetail', { item: item.original || item }),
-        },
+  function abrirMenuOcorrencia(item: Ocorrencia) {
+    const opcoes: any[] = [
+      {
+        text: 'Ver detalhes',
+        onPress: () => navigation?.navigate('ReportDetail', { item }),
+      },
+    ];
+
+    if (podeGerenciar(item)) {
+      opcoes.push(
         {
           text: 'Editar ocorrência',
-          onPress: () => navigation?.navigate('NewReport', { ocorrencia: item.original || item }),
+          onPress: () => navigation?.navigate('NewReport', { ocorrencia: item }),
         },
         {
           text: 'Apagar ocorrência',
           style: 'destructive',
           onPress: async () => {
             try {
-              await deletarOcorrencia(item.id);
+              await deletarOcorrencia(item.id as number);
               carregarFeed(false);
-            } catch {
-              Alert.alert('Erro', 'Não foi possível apagar a ocorrência.');
+            } catch (error: any) {
+              Alert.alert(
+                'Erro',
+                error?.status === 403
+                  ? 'Você só pode apagar as ocorrências que criou.'
+                  : 'Não foi possível apagar a ocorrência.',
+              );
             }
           },
         },
-        { text: 'Cancelar', style: 'cancel' },
-      ]
-    );
-  }
+      );
+    }
 
-  function montarEndereco(item: Ocorrencia) {
-    const rua = item.rua || '';
-    const bairro = item.bairro && item.bairro !== 'Não informado' ? item.bairro : '';
+    opcoes.push({ text: 'Cancelar', style: 'cancel' });
 
-    if (rua && bairro) return `${rua}, ${bairro}`;
-    return rua || bairro || '';
-  }
-
-  function formatarTitulo(categoria?: string) {
-    if (categoria === 'ILUMINACAO') return 'Iluminação pública';
-    if (categoria === 'SAUDE_PUBLICA') return 'Saúde pública';
-    if (categoria === 'TRANSITO') return 'Trânsito';
-    if (categoria === 'INFRAESTRUTURA') return 'Infraestrutura';
-    if (categoria === 'LIMPEZA') return 'Limpeza urbana';
-    return 'Ocorrência';
-  }
-
-  function formatarUrgencia(urgencia?: string) {
-    if (urgencia === 'ALTA') return 'Grau alto';
-    if (urgencia === 'MEDIA') return 'Grau médio';
-    return 'Grau baixo';
-  }
-
-  function corUrgencia(urgencia?: string) {
-    if (urgencia === 'ALTA') return '#ef4444';
-    if (urgencia === 'MEDIA') return '#f59e0b';
-    return '#22c55e';
-  }
-
-  function emojiCategoria(categoria?: string) {
-    if (categoria === 'ILUMINACAO') return '💡';
-    if (categoria === 'SAUDE_PUBLICA') return '🏥';
-    if (categoria === 'TRANSITO') return '🚦';
-    if (categoria === 'INFRAESTRUTURA') return '🛣️';
-    if (categoria === 'LIMPEZA') return '🗑️';
-    return '📍';
-  }
-
-  function bgCategoria(categoria?: string) {
-    if (categoria === 'ILUMINACAO') return '#1a1a2e';
-    if (categoria === 'SAUDE_PUBLICA') return '#ef4444';
-    if (categoria === 'TRANSITO') return '#f59e0b';
-    if (categoria === 'INFRAESTRUTURA') return '#92a0a8';
-    if (categoria === 'LIMPEZA') return '#6b7280';
-    return '#7ec8e3';
+    Alert.alert(item.descricao || 'Ocorrência', undefined, opcoes);
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
         <View style={styles.appNameRow}>
@@ -196,16 +173,38 @@ export default function HomeScreen({ navigation }: Props) {
           <Text style={styles.appNameGold}>Cidade</Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.notifBtn}
-          onPress={() => navigation?.navigate('Notification')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.notifIcon}>🔔</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.assistenteBtn}
+            onPress={() => navigation?.navigate('Assistente')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.assistenteIcon}>💬</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.notifBtn}
+            onPress={() => navigation?.navigate('Notification')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.notifIcon}>🔔</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={atualizando}
+            onRefresh={() => {
+              setAtualizando(true);
+              carregarFeed(false);
+            }}
+          />
+        }
+      >
         <View style={styles.heroBanner}>
           <View style={styles.heroText}>
             <Text style={styles.heroTitle}>Faça sua parte por{'\n'}uma cidade melhor!</Text>
@@ -233,103 +232,138 @@ export default function HomeScreen({ navigation }: Props) {
 
         <Text style={styles.feedTitle}>Ocorrências ativas da população:</Text>
 
-        {carregandoFeed && (
-          <Text style={styles.emptyText}>Carregando ocorrências...</Text>
-        )}
+        {carregandoFeed && <Text style={styles.emptyText}>Carregando ocorrências...</Text>}
 
         {!carregandoFeed && feed.length === 0 && (
           <Text style={styles.emptyText}>Nenhuma ocorrência cadastrada ainda.</Text>
         )}
 
-        {feed.map((item) => (
-          <View key={item.id} style={styles.feedCard}>
-            <View style={styles.ocorrenciaRow}>
-              <TouchableOpacity
-                style={[styles.thumbnail, { backgroundColor: item.bg }]}
-                onPress={() => navigation?.navigate('ReportDetail', { item: item.original || item })}
-                activeOpacity={0.8}
-              >
-                {item.imagemBase64 ? (
-                  <Image source={{ uri: item.imagemBase64 }} style={styles.thumbnailImage} />
-                ) : (
-                  <Text style={styles.thumbnailEmoji}>{item.emoji}</Text>
-                )}
-              </TouchableOpacity>
+        {feed.map((item) => {
+          const imagem = imagensComFalha[item.id as number] ? null : item.id ? imagens[item.id] : null;
 
-              <TouchableOpacity
-                style={styles.ocorrenciaInfo}
-                onPress={() => navigation?.navigate('ReportDetail', { item: item.original || item })}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.ocorrenciaTitulo}>{item.titulo}</Text>
+          return (
+            <View key={item.id} style={styles.feedCard}>
+              <View style={styles.ocorrenciaRow}>
+                <TouchableOpacity
+                  style={styles.thumbnail}
+                  onPress={() => navigation?.navigate('ReportDetail', { item })}
+                  activeOpacity={0.8}
+                >
+                  {imagem ? (
+                    <Image
+                      source={imagem}
+                      style={styles.thumbnailImage}
+                      onError={() =>
+                        setImagensComFalha((prev) => ({ ...prev, [item.id as number]: true }))
+                      }
+                    />
+                  ) : (
+                    <Text style={styles.thumbnailEmoji}>{emojiCategoria(item.categoria)}</Text>
+                  )}
+                </TouchableOpacity>
 
-                {!!item.endereco && (
-                  <Text style={styles.ocorrenciaEndereco}>{item.endereco}</Text>
-                )}
+                <TouchableOpacity
+                  style={styles.ocorrenciaInfo}
+                  onPress={() => navigation?.navigate('ReportDetail', { item })}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.tituloRow}>
+                    <Text style={styles.ocorrenciaTitulo}>{tituloCategoria(item.categoria)}</Text>
 
-                <Text style={styles.ocorrenciaDescricao}>{item.descricao}</Text>
-
-                <View style={styles.ocorrenciaBottom}>
-                  <View style={styles.grauRow}>
-                    <View style={[styles.grauDot, { backgroundColor: item.grauCor }]} />
-                    <Text style={styles.grauText}>{item.grau}</Text>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        { backgroundColor: `${corStatus(item.status)}18` },
+                      ]}
+                    >
+                      <View
+                        style={[styles.statusDot, { backgroundColor: corStatus(item.status) }]}
+                      />
+                      <Text style={[styles.statusPillText, { color: corStatus(item.status) }]}>
+                        {rotuloStatus(item.status)}
+                      </Text>
+                    </View>
                   </View>
 
-                  <Text style={styles.ocorrenciaData}>{item.data}</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.menuDots}
-                onPress={() => abrirMenuOcorrencia(item)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.menuDotsText}>⋮</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.divider} />
-
-            {(comentariosPorOcorrencia[item.id] || []).map((comentario, index) => (
-              <View key={comentario.id || index} style={styles.comentarioRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {(comentario.usuario?.nome || 'U').substring(0, 2).toUpperCase()}
+                  <Text style={styles.ocorrenciaEndereco}>{enderecoOcorrencia(item)}</Text>
+                  <Text style={styles.ocorrenciaDescricao} numberOfLines={3}>
+                    {item.descricao}
                   </Text>
-                </View>
 
-                <View style={styles.comentarioContent}>
-                  <View style={styles.comentarioHeader}>
-                    <Text style={styles.comentarioNome}>{comentario.usuario?.nome || 'Usuário'}</Text>
-                    <Text style={styles.comentarioTempo}>
-                      {comentario.dataCriacao ? new Date(comentario.dataCriacao).toLocaleDateString('pt-BR') : ''}
+                  <View style={styles.ocorrenciaBottom}>
+                    <View style={styles.grauRow}>
+                      <View
+                        style={[styles.grauDot, { backgroundColor: corUrgencia(item.urgencia) }]}
+                      />
+                      <Text style={styles.grauText}>{rotuloUrgencia(item.urgencia)}</Text>
+                    </View>
+
+                    <Text style={styles.ocorrenciaData}>
+                      {item.dataCriacao
+                        ? new Date(item.dataCriacao).toLocaleDateString('pt-BR')
+                        : ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.menuDots}
+                  onPress={() => abrirMenuOcorrencia(item)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.menuDotsText}>⋮</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.divider} />
+
+              {(comentariosPorOcorrencia[item.id as number] || []).map((comentario, index) => (
+                <View key={comentario.id || index} style={styles.comentarioRow}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {(comentario.usuario?.nome || 'U').substring(0, 2).toUpperCase()}
                     </Text>
                   </View>
 
-                  <Text style={styles.comentarioTexto}>{comentario.texto}</Text>
+                  <View style={styles.comentarioContent}>
+                    <View style={styles.comentarioHeader}>
+                      <Text style={styles.comentarioNome}>
+                        {comentario.usuario?.nome || 'Usuário'}
+                      </Text>
+                      <Text style={styles.comentarioTempo}>
+                        {comentario.dataCriacao
+                          ? new Date(comentario.dataCriacao).toLocaleDateString('pt-BR')
+                          : ''}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.comentarioTexto}>{comentario.texto}</Text>
+                  </View>
                 </View>
+              ))}
+
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder="Escreva um comentário..."
+                  placeholderTextColor="#94a3b8"
+                  value={comentarios[item.id as number] || ''}
+                  onChangeText={(text) =>
+                    setComentarios((prev) => ({ ...prev, [item.id as number]: text }))
+                  }
+                />
+
+                <TouchableOpacity
+                  style={styles.sendBtn}
+                  onPress={() => enviarComentario(item.id as number)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.sendIcon}>➤</Text>
+                </TouchableOpacity>
               </View>
-            ))}
-
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Escreva um comentário..."
-                placeholderTextColor="#94a3b8"
-                value={comentarios[item.id] || ''}
-                onChangeText={(text) => setComentarios(prev => ({ ...prev, [item.id]: text }))}
-              />
-
-              <TouchableOpacity
-                style={styles.sendBtn}
-                onPress={() => enviarComentario(item.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.sendIcon}>➤</Text>
-              </TouchableOpacity>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
 
       <View style={styles.bottomNav}>
@@ -382,6 +416,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   notifIcon: { fontSize: 22 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  assistenteBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#d6eef8',
+  },
+  assistenteIcon: { fontSize: 20 },
 
   scroll: { paddingBottom: 24 },
 
@@ -403,12 +447,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 6,
   },
-  heroDesc: {
-    fontSize: 12,
-    color: '#334155',
-    lineHeight: 18,
-    marginBottom: 12,
-  },
+  heroDesc: { fontSize: 12, color: '#334155', lineHeight: 18, marginBottom: 12 },
   heroBtn: {
     backgroundColor: '#f5f0c8',
     borderRadius: 10,
@@ -438,12 +477,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
-  bubbleDots: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
+  bubbleDots: { fontSize: 12, color: '#fff', fontWeight: '700', letterSpacing: 1 },
 
   feedTitle: {
     fontSize: 15,
@@ -452,11 +486,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 12,
   },
-  emptyText: {
-    textAlign: 'center',
-    color: '#64748b',
-    marginTop: 20,
-  },
+  emptyText: { textAlign: 'center', color: '#64748b', marginTop: 20 },
 
   feedCard: {
     marginHorizontal: 16,
@@ -465,12 +495,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f1f5f9',
     paddingBottom: 12,
   },
-  ocorrenciaRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 10,
-  },
+  ocorrenciaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
   thumbnail: {
     width: 72,
     height: 72,
@@ -479,66 +504,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
     overflow: 'hidden',
+    backgroundColor: '#d6eef8',
   },
   thumbnailEmoji: { fontSize: 32 },
-  thumbnailImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 10,
-  },
+  thumbnailImage: { width: '100%', height: '100%', borderRadius: 10 },
   ocorrenciaInfo: { flex: 1 },
-  ocorrenciaTitulo: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1a1a2e',
-    marginBottom: 2,
+  tituloRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  ocorrenciaTitulo: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', flexShrink: 1 },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 999,
   },
-  ocorrenciaEndereco: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 2,
-  },
-  ocorrenciaDescricao: {
-    fontSize: 12,
-    color: '#334155',
-    marginBottom: 6,
-    lineHeight: 17,
-  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusPillText: { fontSize: 10, fontWeight: '700' },
+  ocorrenciaEndereco: { fontSize: 12, color: '#64748b', marginBottom: 2 },
+  ocorrenciaDescricao: { fontSize: 12, color: '#334155', marginBottom: 6, lineHeight: 17 },
   ocorrenciaBottom: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  grauRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
+  grauRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   grauDot: { width: 10, height: 10, borderRadius: 5 },
-  grauText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#1a1a2e',
-  },
+  grauText: { fontSize: 12, fontWeight: '500', color: '#1a1a2e' },
   ocorrenciaData: { fontSize: 11, color: '#94a3b8' },
   menuDots: { padding: 4 },
-  menuDotsText: {
-    fontSize: 20,
-    color: '#64748b',
-    lineHeight: 22,
-  },
+  menuDotsText: { fontSize: 20, color: '#64748b', lineHeight: 22 },
 
-  divider: {
-    height: 1,
-    backgroundColor: '#f1f5f9',
-    marginBottom: 10,
-  },
+  divider: { height: 1, backgroundColor: '#f1f5f9', marginBottom: 10 },
 
-  comentarioRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
+  comentarioRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   avatar: {
     width: 34,
     height: 34,
@@ -548,38 +547,18 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     backgroundColor: '#7c5cbf',
   },
-  avatarText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#fff',
-  },
+  avatarText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   comentarioContent: { flex: 1 },
   comentarioHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 2,
   },
-  comentarioNome: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1a1a2e',
-  },
-  comentarioTempo: {
-    fontSize: 11,
-    color: '#94a3b8',
-  },
-  comentarioTexto: {
-    fontSize: 12,
-    color: '#334155',
-    lineHeight: 18,
-    marginBottom: 4,
-  },
+  comentarioNome: { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
+  comentarioTempo: { fontSize: 11, color: '#94a3b8' },
+  comentarioTexto: { fontSize: 12, color: '#334155', lineHeight: 18, marginBottom: 4 },
 
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   commentInput: {
     flex: 1,
     height: 38,
@@ -622,19 +601,8 @@ const styles = StyleSheet.create({
     marginTop: -24,
     elevation: 4,
   },
-  navPlus: {
-    fontSize: 30,
-    color: '#1a1a2e',
-    lineHeight: 34,
-  },
+  navPlus: { fontSize: 30, color: '#1a1a2e', lineHeight: 34 },
   navIcon: { fontSize: 22 },
-  navLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#1a3a5c',
-  },
-  navLabelActive: {
-    fontWeight: '700',
-    color: '#1a1a2e',
-  },
+  navLabel: { fontSize: 11, fontWeight: '500', color: '#1a3a5c' },
+  navLabelActive: { fontWeight: '700', color: '#1a1a2e' },
 });

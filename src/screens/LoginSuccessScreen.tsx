@@ -1,12 +1,6 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  SafeAreaView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Props = {
   navigation?: any;
@@ -15,18 +9,16 @@ type Props = {
 export default function LoginSuccessScreen({ navigation }: Props) {
 
   const handleInicio = () => {
-    // navigation?.navigate('Home');
-    console.log('Ir para o início');
+    navigation?.replace?.('Home');
   };
 
   const handlePerfil = () => {
-    // navigation?.navigate('Perfil');
-    console.log('Ir para o meu perfil');
+    navigation?.navigate?.('Profile');
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" />
 
       {/* Nome do app */}
       <View style={styles.appNameRow}>

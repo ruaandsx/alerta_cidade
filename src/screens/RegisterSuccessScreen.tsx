@@ -5,9 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  SafeAreaView,
   ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type Props = {
   navigation?: any;
@@ -22,18 +22,16 @@ export default function RegisterSuccessScreen({ navigation, route }: Props) {
   const email = route?.params?.email ?? "pauloph09@gmail.com";
 
   const handleInicio = () => {
-    // navigation?.navigate('Home');
-    console.log("Ir para o início");
+    navigation?.replace?.("Home");
   };
 
   const handlePerfil = () => {
-    // navigation?.navigate('Perfil');
-    console.log("Ir para o meu perfil");
+    navigation?.navigate?.("Profile");
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         contentContainerStyle={styles.scroll}

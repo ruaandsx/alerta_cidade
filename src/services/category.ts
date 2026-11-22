@@ -1,7 +1,8 @@
-import api from './api';
+import { apiRequest, extrairLista } from './api';
+
 export const categoryService = {
   async getAll() {
-    const { data } = await api.get('/categories');
-    return data.data.cats;
+    const dados = await apiRequest<{ categorias: { valor: string; rotulo: string }[] }>('/dominios');
+    return dados?.categorias ?? [];
   },
 };

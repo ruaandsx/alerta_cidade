@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TouchableOpacity, StyleSheet, StatusBar,
-  SafeAreaView, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
 
@@ -15,7 +13,7 @@ export default function PhoneLoginScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#7ec8e3" />
+      <StatusBar barStyle="dark-content" />
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} activeOpacity={0.7}>
         <Text style={styles.backArrow}>←</Text>
       </TouchableOpacity>
@@ -47,11 +45,11 @@ export default function PhoneLoginScreen({ navigation }: Props) {
               <Text style={styles.fieldLabel}>Digite sua senha</Text>
               <View style={styles.inputRow}>
                 <Text style={styles.fieldIcon}>🔒</Text>
-                <TextInput style={styles.input} value={senha} onChangeText={setSenha} secureTextEntry returnKeyType="done" onSubmitEditing={() => navigation.navigate('LoginSuccess')} onFocus={() => setFocused('senha')} onBlur={() => setFocused(null)} />
+                <TextInput style={styles.input} value={senha} onChangeText={setSenha} secureTextEntry returnKeyType="done" onSubmitEditing={() => navigation.navigate('LoginSucess')} onFocus={() => setFocused('senha')} onBlur={() => setFocused(null)} />
               </View>
             </View>
 
-            <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('LoginSuccess')} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('LoginSucess')} activeOpacity={0.85}>
               <Text style={styles.buttonText}>Entrar</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('EsqueciSenha')} activeOpacity={0.7} style={styles.forgotWrapper}>

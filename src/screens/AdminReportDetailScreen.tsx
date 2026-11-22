@@ -1,26 +1,48 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View, Text, TouchableOpacity, StyleSheet, StatusBar,
-  SafeAreaView, ScrollView, Image, TextInput, Alert,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Image, TextInput, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   atualizarStatusOcorrencia,
+  buscarOcorrencia,
   criarComentario,
   listarComentarios,
   deletarOcorrencia,
+  Ocorrencia,
+  tituloCategoria,
+  rotuloStatus,
+  corStatus,
 } from '../services/ocorrenciaService';
+import { fonteImagem, FonteImagem } from '../services/api';
 
 type Props = { navigation?: any; route?: any };
 
 export default function AdminReportDetailScreen({ navigation, route }: Props) {
-  const [item, setItem] = useState(route?.params?.item || {});
+  const [item, setItem] = useState<Ocorrencia>(route?.params?.item || {});
+  const [imagem, setImagem] = useState<FonteImagem | null>(null);
   const [comentarios, setComentarios] = useState<any[]>([]);
   const [resposta, setResposta] = useState('');
 
   useEffect(() => {
+    carregarDetalhe();
     carregarComentarios();
-  }, []);
+  }, [route?.params?.item?.id]);
+
+  async function carregarDetalhe() {
+    const id = route?.params?.item?.id;
+    if (!id) return;
+
+    try {
+      const detalhe = await buscarOcorrencia(id);
+      setItem(detalhe);
+
+      if (detalhe.temImagem) {
+        setImagem(await fonteImagem(detalhe.id, true));
+      }
+    } catch (error) {
+      console.log('Erro ao carregar detalhe:', error);
+    }
+  }
 
   async function carregarComentarios() {
     if (!item?.id) return;
@@ -32,29 +54,13 @@ export default function AdminReportDetailScreen({ navigation, route }: Props) {
     }
   }
 
-  function tituloOcorrencia() {
-    if (item.categoria === 'ILUMINACAO') return 'Iluminação pública';
-    if (item.categoria === 'SAUDE_PUBLICA') return 'Saúde pública';
-    if (item.categoria === 'TRANSITO') return 'Trânsito';
-    if (item.categoria === 'INFRAESTRUTURA') return 'Infraestrutura';
-    if (item.categoria === 'LIMPEZA') return 'Limpeza urbana';
-    return 'Ocorrência';
-  }
-
-  function statusTexto(status?: string) {
-    if (status === 'RECEBIDO') return 'Recebido';
-    if (status === 'EM_ANALISE') return 'Em análise';
-    if (status === 'RESOLVIDO') return 'Resolvido';
-    return 'Recebido';
-  }
-
-  async function mudarStatus(status: 'RECEBIDO' | 'EM_ANALISE' | 'RESOLVIDO') {
+  async function mudarStatus(status: 'RECEBIDO' | 'EM_ANALISE' | 'EM_ANDAMENTO' | 'RESOLVIDO') {
     try {
-      const atualizado = await atualizarStatusOcorrencia(item.id, status);
+      const atualizado = await atualizarStatusOcorrencia(item.id as number, status);
       setItem(atualizado);
-      Alert.alert('Status atualizado', `Ocorrência marcada como ${statusTexto(status)}.`);
-    } catch {
-      Alert.alert('Erro', 'Não foi possível atualizar o status.');
+      Alert.alert('Status atualizado', `Ocorrência marcada como ${rotuloStatus(status)}.`);
+    } catch (error: any) {
+      Alert.alert('Erro', error?.message || 'Não foi possível atualizar o status.');
     }
   }
 
@@ -94,7 +100,7 @@ export default function AdminReportDetailScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation?.goBack()}>
@@ -112,31 +118,33 @@ export default function AdminReportDetailScreen({ navigation, route }: Props) {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.imagemWrapper}>
           <View style={styles.imagemPrincipal}>
-            {item.imagemBase64 ? (
-              <Image source={{ uri: item.imagemBase64 }} style={styles.imagemReal} />
+            {imagem ? (
+              <Image source={imagem} style={styles.imagemReal} />
             ) : (
               <Text style={styles.imagemEmoji}>📍</Text>
             )}
           </View>
 
           <View style={styles.infoLateral}>
-            <View style={styles.statusBtn}>
-              <Text style={styles.statusBtnText}>{statusTexto(item.status)}</Text>
+            <View style={[styles.statusBtn, { backgroundColor: `${corStatus(item.status)}18`, borderColor: corStatus(item.status) }]}>
+              <Text style={[styles.statusBtnText, { color: corStatus(item.status) }]}>
+                {rotuloStatus(item.status)}
+              </Text>
             </View>
 
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Categoria</Text>
-              <Text style={styles.infoValue}>{tituloOcorrencia()}</Text>
+              <Text style={styles.infoValue}>{tituloCategoria(item.categoria)}</Text>
             </View>
 
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Prioridade</Text>
-              <Text style={styles.infoValue}>{item.urgencia || 'Não informada'}</Text>
+              <Text style={styles.infoValue}>{item.urgenciaLabel || item.urgencia || 'Não informada'}</Text>
             </View>
 
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Criada por</Text>
-              <Text style={styles.infoValue}>{item.usuario?.nome || 'Usuário'}</Text>
+              <Text style={styles.infoValue}>{item.usuario?.nome || item.usuarioNome || 'Usuário'}</Text>
             </View>
 
             <View style={styles.infoItem}>
@@ -151,6 +159,10 @@ export default function AdminReportDetailScreen({ navigation, route }: Props) {
           <TouchableOpacity style={[styles.acaoBtn, { backgroundColor: '#f59e0b' }]} onPress={() => mudarStatus('EM_ANALISE')}>
             <Text style={styles.acaoBtnIcon}>🔎</Text>
             <Text style={styles.acaoBtnText}>Em análise</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.acaoBtn, { backgroundColor: '#7c3aed' }]} onPress={() => mudarStatus('EM_ANDAMENTO')}>
+            <Text style={styles.acaoBtnIcon}>🚧</Text>
+            <Text style={styles.acaoBtnText}>Em andamento</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.acaoBtn, { backgroundColor: '#22c55e' }]} onPress={() => mudarStatus('RESOLVIDO')}>
             <Text style={styles.acaoBtnIcon}>✅</Text>

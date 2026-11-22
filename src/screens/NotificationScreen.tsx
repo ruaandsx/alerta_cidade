@@ -1,12 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   listarNotificacoes,
@@ -29,13 +23,13 @@ export default function NotificationScreen({ navigation }: any) {
     try {
       setCarregando(true);
 
-      const data = await listarNotificacoes();
+      const data = await listarNotificacoes(true);
       setNotificacoes(data || []);
 
-      if (data && data.length > 0) {
+      if ((data || []).some((n) => n.lida === false)) {
         setTimeout(() => {
           marcarNotificacoesComoLidas().catch(() => {});
-        }, 1000);
+        }, 1500);
       }
     } catch (error) {
       console.log('Erro ao carregar notificações:', error);
@@ -49,6 +43,7 @@ export default function NotificationScreen({ navigation }: any) {
     if (tipo === 'RESOLVIDO') return '#dcfce7';
     if (tipo === 'COMENTARIO') return '#d6eef8';
     if (tipo === 'EM_ANALISE') return '#fef3c7';
+    if (tipo === 'EM_ANDAMENTO') return '#ede9fe';
     return '#f8f4e8';
   }
 
@@ -74,10 +69,22 @@ export default function NotificationScreen({ navigation }: any) {
         )}
 
         {notificacoes.map((n, i) => (
-          <View key={n.id || i} style={[styles.card, { backgroundColor: cor(n.tipo) }]}>
-            <Text style={styles.cardTitle}>
-              {n.titulo || 'Atualização da ocorrência'}
-            </Text>
+          <TouchableOpacity
+            key={n.id || i}
+            activeOpacity={0.8}
+            onPress={() => {
+              if (n.ocorrenciaId) {
+                navigation?.navigate('ReportDetail', { item: { id: n.ocorrenciaId } });
+              }
+            }}
+            style={[styles.card, { backgroundColor: cor(n.tipo) }]}
+          >
+            <View style={styles.cardTopo}>
+              <Text style={styles.cardTitle}>
+                {n.titulo || 'Atualização da ocorrência'}
+              </Text>
+              {n.lida === false && <View style={styles.naoLida} />}
+            </View>
 
             <Text style={styles.text}>
               {n.mensagem || 'Você recebeu uma nova atualização.'}
@@ -86,7 +93,7 @@ export default function NotificationScreen({ navigation }: any) {
             <Text style={styles.date}>
               {n.dataCriacao ? new Date(n.dataCriacao).toLocaleString('pt-BR') : ''}
             </Text>
-          </View>
+          </TouchableOpacity>
         ))}
 
         <View style={styles.supportCard}>
@@ -141,6 +148,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+
+  cardTopo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  naoLida: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' },
 
   supportCard: {
     borderRadius: 16,

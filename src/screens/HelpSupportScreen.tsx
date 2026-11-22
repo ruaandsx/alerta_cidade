@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, SafeAreaView, ScrollView, TextInput, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, TextInput, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { enviarSuporte } from '../services/suporteService';
 
 const assuntos = [
@@ -17,7 +18,7 @@ export default function HelpSupportScreen({ navigation }: any) {
     catch(e){ console.log(e); Alert.alert('Erro','Não foi possível enviar a mensagem.'); } finally{ setEnviando(false); }
   }
   return (
-    <SafeAreaView style={styles.container}><StatusBar barStyle="dark-content" backgroundColor="#7ec8e3" />
+    <SafeAreaView style={styles.container}><StatusBar barStyle="dark-content" />
       <View style={styles.header}><TouchableOpacity onPress={()=>navigation?.goBack()}><Text style={styles.backArrow}>←</Text></TouchableOpacity><View style={styles.headerCenter}><Text style={styles.headerTitle}>Falar com suporte</Text><Text style={styles.headerSubtitle}>Estamos aqui para ajudar!</Text></View><View style={{width:32}} /></View>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.welcomeCard}><View style={styles.welcomeText}><Text style={styles.welcomeTitle}>Olá, como{`\n`}podemos ajudar?</Text><Text style={styles.welcomeDesc}>Escolha um dos assuntos{`\n`}abaixo ou envie sua mensagem.</Text></View><View style={styles.agentCircle}><Text style={styles.agentEmoji}>👩‍💻</Text></View></View>

@@ -1,33 +1,39 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { authService } from '../services/auth';
-import { User } from '../types';
+import {
+  login as loginApi,
+  cadastrar,
+  logout as logoutApi,
+  UsuarioLogado,
+} from '../services/auth';
 
 interface AuthContextData {
-  user: User | null;
+  user: UsuarioLogado | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, city: string) => Promise<void>;
+  login: (email: string, senha: string) => Promise<UsuarioLogado>;
+  register: (nome: string, email: string, senha: string, cidade?: string) => Promise<UsuarioLogado>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UsuarioLogado | null>(null);
   const [loading] = useState(false);
 
-  const login = async (email: string, password: string) => {
-    const { user } = await authService.login(email, password);
-    setUser(user);
+  const login = async (email: string, senha: string) => {
+    const usuario = await loginApi(email, senha);
+    setUser(usuario);
+    return usuario;
   };
 
-  const register = async (name: string, email: string, password: string, city: string) => {
-    const { user } = await authService.register(name, email, password, city);
-    setUser(user);
+  const register = async (nome: string, email: string, senha: string, cidade?: string) => {
+    const usuario = await cadastrar(nome, email, senha, undefined, cidade);
+    setUser(usuario);
+    return usuario;
   };
 
   const logout = async () => {
-    await authService.logout();
+    await logoutApi();
     setUser(null);
   };
 

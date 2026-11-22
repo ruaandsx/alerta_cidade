@@ -1,46 +1,301 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-export const API_BASE_URL = 'http://10.0.0.204:8080';
+/**
+ * Endereço da API.
+ *
+ * Ordem de prioridade:
+ *  1. Endereço salvo pelo usuário (tela de login → "Servidor")
+ *  2. Variável de ambiente EXPO_PUBLIC_API_URL
+ *  3. IP da máquina que está servindo o Expo (funciona automático no Expo Go)
+ *  4. localhost:8080
+ */
 
-async function getToken() {
-  return await AsyncStorage.getItem('token');
+const CHAVE_URL = 'apiUrl';
+const CHAVE_TOKEN = 'token';
+const PORTA_API = 8080;
+
+export type FonteImagem = { uri: string; headers?: Record<string, string> };
+
+export class ApiError extends Error {
+  status?: number;
+  campos?: Record<string, string> | null;
+
+  constructor(mensagem: string, status?: number, campos?: Record<string, string> | null) {
+    super(mensagem);
+    this.name = 'ApiError';
+    this.status = status;
+    this.campos = campos ?? null;
+  }
+}
+
+let urlEmCache: string | null = null;
+
+function normalizarUrl(valor: string): string {
+  let url = valor.trim();
+
+  if (!url) return url;
+  if (!/^https?:\/\//i.test(url)) url = `http://${url}`;
+  url = url.replace(/\/+$/, '');
+
+  const semProtocolo = url.replace(/^https?:\/\//i, '');
+  const temPorta = /:\d+($|\/)/.test(semProtocolo.split('/')[0]);
+
+  if (!temPorta && /^http:\/\//i.test(url)) {
+    url = `${url}:${PORTA_API}`;
+  }
+
+  return url;
+}
+
+function hostDoExpo(): string | null {
+  const qualquer = Constants as any;
+
+  const hostUri: string | undefined =
+    qualquer?.expoConfig?.hostUri ||
+    qualquer?.expoGoConfig?.debuggerHost ||
+    qualquer?.manifest2?.extra?.expoGo?.debuggerHost ||
+    qualquer?.manifest?.debuggerHost;
+
+  if (!hostUri) return null;
+
+  const host = String(hostUri).split('/')[0].split('?')[0].split(':')[0];
+  return host || null;
+}
+
+function urlPadrao(): string {
+  const host = hostDoExpo();
+
+  if (host) {
+    const normalizado =
+      Platform.OS === 'android' && (host === 'localhost' || host === '127.0.0.1')
+        ? '10.0.2.2'
+        : host;
+
+    return `http://${normalizado}:${PORTA_API}`;
+  }
+
+  // Build próprio (APK): usa o endereço embutido no app.json em extra.apiUrl.
+  const embutida = (Constants.expoConfig?.extra as any)?.apiUrl;
+
+  if (typeof embutida === 'string' && embutida.trim()) {
+    return normalizarUrl(embutida);
+  }
+
+  if (Platform.OS === 'android') return `http://10.0.2.2:${PORTA_API}`;
+  return `http://localhost:${PORTA_API}`;
+}
+
+/** Testa se o servidor responde em /health (usado para escolher o melhor endereço). */
+async function servidorResponde(url: string, limiteMs = 2500): Promise<boolean> {
+  const controlador = new AbortController();
+  const timer = setTimeout(() => controlador.abort(), limiteMs);
+
+  try {
+    const resposta = await fetch(`${url}/health`, { signal: controlador.signal });
+    if (!resposta.ok) return false;
+    const corpo = await resposta.text();
+    return /"status"\s*:\s*"UP"/i.test(corpo);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Endereços possíveis, em ordem de preferência:
+ *  1. IP da máquina do Expo (Wi-Fi local)
+ *  2. extra.apiUrl (endereço embutido no app)
+ *  3. extra.apiUrlRemota (túnel público, usado quando o celular está em dados móveis)
+ */
+function candidatosDeUrl(): string[] {
+  const extra = (Constants.expoConfig?.extra ?? {}) as any;
+  const lista = [urlPadrao(), extra.apiUrl, extra.apiUrlRemota]
+    .filter((valor): valor is string => typeof valor === 'string' && !!valor.trim())
+    .map(normalizarUrl);
+
+  return lista.filter((url, indice) => lista.indexOf(url) === indice);
+}
+
+/** Escolhe o primeiro endereço que responde; se nenhum responder, mantém o preferido. */
+async function descobrirUrl(): Promise<string> {
+  const candidatos = candidatosDeUrl();
+  if (candidatos.length <= 1) return candidatos[0];
+
+  const testes = await Promise.all(
+    candidatos.map(async (url, indice) => ({ url, indice, ok: await servidorResponde(url) })),
+  );
+
+  const aprovados = testes.filter((t) => t.ok).sort((a, b) => a.indice - b.indice);
+  return aprovados[0]?.url ?? candidatos[0];
+}
+
+export async function obterApiUrl(forcar = false): Promise<string> {
+  if (!forcar && urlEmCache) return urlEmCache;
+
+  try {
+    const salva = await AsyncStorage.getItem(CHAVE_URL);
+    if (salva) {
+      urlEmCache = normalizarUrl(salva);
+      return urlEmCache;
+    }
+  } catch {
+    // segue para o padrão
+  }
+
+  const ambiente = (globalThis as any)?.process?.env?.EXPO_PUBLIC_API_URL as string | undefined;
+
+  if (ambiente) {
+    urlEmCache = normalizarUrl(ambiente);
+    return urlEmCache;
+  }
+
+  urlEmCache = await descobrirUrl();
+  return urlEmCache;
+}
+
+/** Esquece a escolha automática (usado após trocar de rede). */
+export function esquecerUrlDetectada(): void {
+  urlEmCache = null;
+}
+
+export async function definirApiUrl(valor: string): Promise<string> {
+  const url = normalizarUrl(valor);
+  await AsyncStorage.setItem(CHAVE_URL, url);
+  urlEmCache = url;
+  return url;
+}
+
+export async function restaurarApiUrlPadrao(): Promise<string> {
+  await AsyncStorage.removeItem(CHAVE_URL);
+  urlEmCache = null;
+  return await obterApiUrl();
+}
+
+export async function obterToken(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(CHAVE_TOKEN);
+  } catch {
+    return null;
+  }
+}
+
+export async function limparToken(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(CHAVE_TOKEN);
+  } catch {
+    // ignora
+  }
 }
 
 type RequestOptions = {
-  method?: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: any;
+  /** Desliga o envio do token (login, cadastro...). */
   auth?: boolean;
+  /** Quando true, body já é FormData. */
+  form?: boolean;
 };
 
-export async function apiRequest(endpoint: string, options: RequestOptions = {}) {
-  const token = await getToken();
+export async function apiRequest<T = any>(
+  endpoint: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  const base = await obterApiUrl();
+  const token = options.auth === false ? null : await obterToken();
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    Accept: 'application/json',
   };
 
-  if (options.auth !== false && token) {
+  if (options.body !== undefined && !options.form) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method: options.method || 'GET',
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-
-  const text = await response.text();
-  let data: any = null;
+  let response: Response;
 
   try {
-    data = text ? JSON.parse(text) : null;
+    response = await fetch(`${base}${endpoint}`, {
+      method: options.method || 'GET',
+      headers,
+      body:
+        options.body === undefined
+          ? undefined
+          : options.form
+            ? options.body
+            : JSON.stringify(options.body),
+    });
   } catch {
-    data = text;
+    throw new ApiError(
+      `Não foi possível conectar em ${base}. Confira se o servidor está ligado e se o celular está na mesma rede.`,
+    );
+  }
+
+  if (response.status === 204) {
+    return null as T;
+  }
+
+  const texto = await response.text();
+  let dados: any = null;
+
+  if (texto) {
+    try {
+      dados = JSON.parse(texto);
+    } catch {
+      dados = texto;
+    }
   }
 
   if (!response.ok) {
-    throw new Error(typeof data === 'string' ? data : data?.message || 'Erro na requisição');
+    if (response.status === 401 && options.auth !== false) {
+      await limparToken();
+    }
+
+    const mensagem =
+      (dados && typeof dados === 'object' && (dados.mensagem || dados.message || dados.erro)) ||
+      (typeof dados === 'string' && dados) ||
+      `Erro ${response.status} ao acessar o servidor.`;
+
+    throw new ApiError(String(mensagem), response.status, dados?.campos ?? null);
   }
 
-  return data;
+  return dados as T;
+}
+
+/** A API devolve páginas em `{ content: [...] }`; aqui já sai a lista pronta. */
+export function extrairLista<T>(dados: any): T[] {
+  if (!dados) return [];
+  if (Array.isArray(dados)) return dados as T[];
+  if (Array.isArray(dados.content)) return dados.content as T[];
+  return [];
+}
+
+export async function fonteImagem(
+  ocorrenciaId?: number,
+  temImagem?: boolean,
+): Promise<FonteImagem | null> {
+  if (!ocorrenciaId || temImagem === false) return null;
+
+  const [base, token] = await Promise.all([obterApiUrl(), obterToken()]);
+
+  const url = `${base}/ocorrencias/${ocorrenciaId}/imagem`;
+
+  // O token vai na query porque o <Image> do React Native não envia headers do
+  // jeito confiável em todas as plataformas/versões. O backend aceita os dois.
+  return {
+    uri: token ? `${url}?token=${encodeURIComponent(token)}` : url,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  };
+}
+
+/** URL absoluta para endpoints que ainda não existem no helper. */
+export async function urlAbsoluta(caminho: string): Promise<string> {
+  const base = await obterApiUrl();
+  return `${base}${caminho.startsWith('/') ? caminho : `/${caminho}`}`;
 }

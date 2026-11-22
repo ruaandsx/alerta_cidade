@@ -1,16 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View, Text, TouchableOpacity, StyleSheet,
-  StatusBar, SafeAreaView, ScrollView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { listarOcorrencias, Ocorrencia } from '../services/ocorrenciaService';
+import {
+  listarMinhasOcorrencias,
+  obterMinhasEstatisticas,
+  Ocorrencia,
+  tituloCategoria,
+  emojiCategoria,
+  enderecoOcorrencia,
+  rotuloStatus,
+  corStatus,
+  rotuloUrgencia,
+  corUrgencia,
+} from '../services/ocorrenciaService';
+import { fonteImagem, FonteImagem } from '../services/api';
 
 type Props = { navigation?: any };
 
 
 export default function HistoricoScreen({ navigation }: Props) {
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
+  const [imagens, setImagens] = useState<Record<number, FonteImagem | null>>({});
+  const [resumo, setResumo] = useState<{ total: number; resolvidas: number; abertas: number }>({
+    total: 0,
+    resolvidas: 0,
+    abertas: 0,
+  });
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -26,22 +42,44 @@ export default function HistoricoScreen({ navigation }: Props) {
   async function carregarHistorico() {
     try {
       setCarregando(true);
-      const data = await listarOcorrencias();
+
+      const [data, estatisticas] = await Promise.all([
+        listarMinhasOcorrencias({ size: 100 }),
+        obterMinhasEstatisticas().catch(() => null),
+      ]);
 
       const formatadas = data.map((item: Ocorrencia) => ({
         id: item.id,
-        titulo: formatarTitulo(item.categoria),
-        endereco: `${item.rua || ''}${item.bairro ? ', ' + item.bairro : ''}`,
-        status: formatarStatus(item.status),
-        grau: formatarUrgencia(item.urgencia),
+        titulo: tituloCategoria(item.categoria),
+        endereco: enderecoOcorrencia(item),
+        status: rotuloStatus(item.status),
+        statusCor: corStatus(item.status),
+        grau: rotuloUrgencia(item.urgencia),
         grauCor: corUrgencia(item.urgencia),
         data: item.dataCriacao ? new Date(item.dataCriacao).toLocaleDateString('pt-BR') : '',
         emoji: emojiCategoria(item.categoria),
-        bg: bgCategoria(item.categoria),
+        temImagem: item.temImagem,
         original: item,
       }));
 
       setOcorrencias(formatadas);
+
+      if (estatisticas) {
+        setResumo({
+          total: estatisticas.total || 0,
+          resolvidas: estatisticas.porStatus?.RESOLVIDO || 0,
+          abertas:
+            (estatisticas.porStatus?.RECEBIDO || 0) + (estatisticas.porStatus?.EM_ANALISE || 0),
+        });
+      }
+
+      const entradas = await Promise.all(
+        data
+          .filter((item) => item.id && item.temImagem)
+          .map(async (item) => [item.id as number, await fonteImagem(item.id, true)] as const),
+      );
+
+      setImagens(Object.fromEntries(entradas));
     } catch (error) {
       console.log('Erro ao carregar histórico:', error);
       setOcorrencias([]);
@@ -51,54 +89,13 @@ export default function HistoricoScreen({ navigation }: Props) {
   }
 
   function formatarTitulo(categoria?: string) {
-    if (categoria === 'ILUMINACAO') return 'Iluminação pública';
-    if (categoria === 'SAUDE_PUBLICA') return 'Saúde pública';
-    if (categoria === 'TRANSITO') return 'Trânsito';
-    if (categoria === 'INFRAESTRUTURA') return 'Infraestrutura';
-    if (categoria === 'LIMPEZA') return 'Limpeza urbana';
-    return 'Ocorrência';
+    return tituloCategoria(categoria);
   }
 
-  function formatarStatus(status?: string) {
-    if (status === 'RECEBIDO') return 'Recebido';
-    if (status === 'EM_ANALISE') return 'Em análise';
-    if (status === 'RESOLVIDO') return 'Resolvido';
-    return 'Recebido';
-  }
-
-  function formatarUrgencia(urgencia?: string) {
-    if (urgencia === 'ALTA') return 'Grau alto';
-    if (urgencia === 'MEDIA') return 'Grau médio';
-    return 'Grau baixo';
-  }
-
-  function corUrgencia(urgencia?: string) {
-    if (urgencia === 'ALTA') return '#ef4444';
-    if (urgencia === 'MEDIA') return '#f59e0b';
-    return '#22c55e';
-  }
-
-  function emojiCategoria(categoria?: string) {
-    if (categoria === 'ILUMINACAO') return '💡';
-    if (categoria === 'SAUDE_PUBLICA') return '🏥';
-    if (categoria === 'TRANSITO') return '🚦';
-    if (categoria === 'INFRAESTRUTURA') return '🛣️';
-    if (categoria === 'LIMPEZA') return '🗑️';
-    return '📍';
-  }
-
-  function bgCategoria(categoria?: string) {
-    if (categoria === 'ILUMINACAO') return '#1a1a2e';
-    if (categoria === 'SAUDE_PUBLICA') return '#ef4444';
-    if (categoria === 'TRANSITO') return '#f59e0b';
-    if (categoria === 'INFRAESTRUTURA') return '#92a0a8';
-    if (categoria === 'LIMPEZA') return '#6b7280';
-    return '#7ec8e3';
-  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -113,6 +110,23 @@ export default function HistoricoScreen({ navigation }: Props) {
 
         <Text style={styles.sectionTitle}>Minhas ocorrências</Text>
 
+        {!carregando && ocorrencias.length > 0 && (
+          <View style={styles.resumoRow}>
+            <View style={styles.resumoItem}>
+              <Text style={styles.resumoValor}>{resumo.total}</Text>
+              <Text style={styles.resumoLabel}>Total</Text>
+            </View>
+            <View style={styles.resumoItem}>
+              <Text style={styles.resumoValor}>{resumo.abertas}</Text>
+              <Text style={styles.resumoLabel}>Em aberto</Text>
+            </View>
+            <View style={styles.resumoItem}>
+              <Text style={[styles.resumoValor, { color: '#16a34a' }]}>{resumo.resolvidas}</Text>
+              <Text style={styles.resumoLabel}>Resolvidas</Text>
+            </View>
+          </View>
+        )}
+
         {/* Lista de ocorrências */}
         {carregando && (
           <Text style={{ textAlign: 'center', color: '#64748b', marginVertical: 20 }}>
@@ -122,37 +136,47 @@ export default function HistoricoScreen({ navigation }: Props) {
 
         {!carregando && ocorrencias.length === 0 && (
           <Text style={{ textAlign: 'center', color: '#64748b', marginVertical: 20 }}>
-            Nenhuma ocorrência encontrada.
+            Você ainda não registrou nenhuma ocorrência.
           </Text>
         )}
 
-        {ocorrencias.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.card}
-            onPress={() => navigation?.navigate('ReportDetail', { item: item.original || item })}
-            activeOpacity={0.8}
-          >
-            {/* Imagem/thumbnail */}
-            <View style={[styles.thumbnail, { backgroundColor: item.bg }]}>
-              <Text style={styles.thumbnailEmoji}>{item.emoji}</Text>
-            </View>
+        {ocorrencias.map((item, index) => {
+          const imagem = item.id ? imagens[item.id] : null;
 
-            {/* Info */}
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardTitulo}>{item.titulo}</Text>
-              <Text style={styles.cardEndereco}>{item.endereco}</Text>
-              <Text style={styles.cardStatus}>Status: {item.status}</Text>
-              <View style={styles.cardBottom}>
-                <View style={styles.grauRow}>
-                  <View style={[styles.grauDot, { backgroundColor: item.grauCor }]} />
-                  <Text style={styles.grauText}>{item.grau}</Text>
-                </View>
-                <Text style={styles.cardData}>{item.data}</Text>
+          return (
+            <TouchableOpacity
+              key={item.id || index}
+              style={styles.card}
+              onPress={() => navigation?.navigate('ReportDetail', { item: item.original || item })}
+              activeOpacity={0.8}
+            >
+              {/* Imagem/thumbnail */}
+              <View style={styles.thumbnail}>
+                {imagem ? (
+                  <Image source={imagem} style={styles.thumbnailImage} />
+                ) : (
+                  <Text style={styles.thumbnailEmoji}>{item.emoji}</Text>
+                )}
               </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+
+              {/* Info */}
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardTitulo}>{item.titulo}</Text>
+                <Text style={styles.cardEndereco}>{item.endereco}</Text>
+                <Text style={[styles.cardStatus, { color: item.statusCor }]}>
+                  Status: {item.status}
+                </Text>
+                <View style={styles.cardBottom}>
+                  <View style={styles.grauRow}>
+                    <View style={[styles.grauDot, { backgroundColor: item.grauCor }]} />
+                    <Text style={styles.grauText}>{item.grau}</Text>
+                  </View>
+                  <Text style={styles.cardData}>{item.data}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
 
         {/* Banner fique por dentro */}
         <View style={styles.bannerCard}>
@@ -197,9 +221,15 @@ const styles = StyleSheet.create({
   scroll:          { paddingHorizontal: 16, paddingBottom: 24 },
   sectionTitle:    { fontSize: 18, fontWeight: '700', color: '#1a1a2e', textAlign: 'center', marginBottom: 16, marginTop: 4 },
 
+  resumoRow:       { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  resumoItem:      { flex: 1, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  resumoValor:     { fontSize: 20, fontWeight: '800', color: '#1565c0' },
+  resumoLabel:     { fontSize: 11, color: '#64748b', fontWeight: '600', marginTop: 2 },
+
   /* Card ocorrência */
   card:            { flexDirection: 'row', borderRadius: 14, borderWidth: 1.5, borderColor: '#5bb8d4', padding: 12, marginBottom: 12, gap: 12, alignItems: 'flex-start' },
-  thumbnail:       { width: 80, height: 80, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  thumbnail:       { width: 80, height: 80, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', backgroundColor: '#d6eef8' },
+  thumbnailImage:  { width: '100%', height: '100%' },
   thumbnailEmoji:  { fontSize: 36 },
   cardInfo:        { flex: 1 },
   cardTitulo:      { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },

@@ -5,10 +5,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  SafeAreaView,
   ScrollView,
   TextInput,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type Props = { navigation?: any };
 
@@ -157,7 +157,7 @@ export function AddUserStep1({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#7ec8e3" />
+      <StatusBar barStyle="dark-content" />
       <AdminHeader />
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -276,7 +276,7 @@ export function AddUserStep2({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#7ec8e3" />
+      <StatusBar barStyle="dark-content" />
       <AdminHeader />
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -423,7 +423,7 @@ export function AddUserStep3({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#7ec8e3" />
+      <StatusBar barStyle="dark-content" />
       <AdminHeader />
       <ScrollView
         contentContainerStyle={styles.scroll}

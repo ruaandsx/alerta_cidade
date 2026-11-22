@@ -1,19 +1,15 @@
 import React from 'react';
-import {
-  View, Text, TouchableOpacity,
-  StyleSheet, StatusBar, SafeAreaView, Image,
-} from 'react-native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'Welcome'>;
+  navigation: any;
 };
 
 export default function WelcomeScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#7ec8e3" />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.content}>
         <View style={styles.logoWrapper}>
