@@ -50,7 +50,19 @@ npx expo start
 > isso já funciona; no APK o `usesCleartextTraffic` já vem habilitado
 > (`expo-build-properties`).
 
-## 2.1 Gerar o APK (instalar no celular sem Expo Go)
+## 2.1 Gerar o APK
+
+**Opção A — EAS Build (na nuvem, recomendado)**
+
+```powershell
+npx eas-cli build -p android --profile preview
+```
+
+O perfil `preview` (em `eas.json`) gera um **APK** para instalação direta. Ao
+terminar, o link do arquivo aparece no terminal e em
+<https://expo.dev/accounts/dyonff7/projects/observa-cidade/builds>.
+
+**Opção B — build local (precisa de Android SDK/NDK)**
 
 ```powershell
 npx expo prebuild --platform android   # gera a pasta android/
@@ -63,6 +75,9 @@ APK gerado em:
 ```
 android\app\build\outputs\apk\release\app-release.apk
 ```
+
+> Em caminhos muito longos (Windows), o build local pode falhar no CMake.
+> Nesse caso use o EAS Build.
 
 Copie para o celular (cabo, Google Drive, WhatsApp) e instale liberando
 "Instalar de fontes desconhecidas".
