@@ -21,10 +21,11 @@
     "android": {
       "package": "br.com.observacidade.app",
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "CAMERA",
-        "READ_MEDIA_IMAGES"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -57,7 +58,11 @@
     "extra": {
       "apiPort": 8080,
       "apiUrl": "http://192.168.0.10:8080",
-      "apiUrlRemota": "https://api.trycloudflare.com"
-    }
+      "apiUrlRemota": "https://api.trycloudflare.com",
+      "eas": {
+        "projectId": "f67e02d9-7917-4ab7-806d-4537881ff60e"
+      }
+    },
+    "owner": "dyonff7"
   }
 }
