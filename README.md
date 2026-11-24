@@ -3,6 +3,10 @@
 Frontend do projeto **Observa Cidade**, feito em React Native + Expo (SDK 58).
 Consome a API Spring Boot do repositório `observacidade-backend`.
 
+> **Repositórios do projeto**
+> - App mobile: <https://github.com/ruaandsx/alerta_cidade>
+> - Backend/API: <https://github.com/dyonxsz/observacidade-backend>
+
 > O SDK do projeto acompanha o **Expo Go** da Play Store: hoje, SDK 58
 > (React Native 0.88, React 19.3). Se o Expo Go reclamar de versão incompatível,
 > rode `npx expo install expo@latest` + `npx expo install --fix`.
