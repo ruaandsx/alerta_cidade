@@ -1,10 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert,
-  KeyboardAvoidingView, Platform, ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import Botao from '../components/Botao';
+import Campo from '../components/Campo';
+import { FONTE_MAXIMA, cores, espaco, layout, raio, tipografia } from '../theme/tokens';
+import { ICONE } from '../theme/icones';
 import { login } from '../services/authService';
 import { logout } from '../services/auth';
 import { obterApiUrl, definirApiUrl, restaurarApiUrlPadrao } from '../services/api';
@@ -86,137 +99,177 @@ export default function LoginScreen({ navigation }: any) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.marca}>
-          <Text style={styles.marcaAzul}>Observa</Text>
-          <Text style={styles.marcaDourada}>Cidade</Text>
-        </View>
-
-        <Text style={styles.title}>Entrar</Text>
-        <Text style={styles.subtitle}>Acesse para registrar e acompanhar ocorrências.</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="E-mail"
-          placeholderTextColor="#94a3b8"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoCorrect={false}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          placeholderTextColor="#94a3b8"
-          value={senha}
-          onChangeText={setSenha}
-          secureTextEntry
-        />
-
-        <TouchableOpacity
-          style={[styles.button, carregando && { opacity: 0.6 }]}
-          onPress={entrar}
-          disabled={carregando}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.buttonText}>{carregando ? 'Entrando...' : 'Entrar'}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation?.navigate?.('Cadastro')}>
-          <Text style={styles.link}>Criar conta</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => setMostrarServidor((v) => !v)}>
-          <Text style={styles.servidorLink}>
-            Servidor: {servidorAtual || 'detectando...'} {mostrarServidor ? '▲' : '▼'}
-          </Text>
-        </TouchableOpacity>
-
-        {mostrarServidor && (
-          <View style={styles.servidorBox}>
-            <Text style={styles.servidorAjuda}>
-              Use o IP do computador que está rodando a API, por exemplo 192.168.1.63:8080.
+          <View style={styles.marca}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.marcaAzul}>
+              Observa
             </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.marcaDourada}>
+              Cidade
+            </Text>
+          </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="http://192.168.1.63:8080"
-              placeholderTextColor="#94a3b8"
-              value={servidor}
-              onChangeText={setServidor}
-              autoCapitalize="none"
-              autoCorrect={false}
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.title}>
+            Entrar
+          </Text>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.subtitle}>
+            Acesse para registrar e acompanhar ocorrências.
+          </Text>
+
+          <View style={styles.formulario}>
+            <Campo
+              rotulo="E-mail"
+              valor={email}
+              aoMudar={setEmail}
+              placeholder="seuemail@exemplo.com"
+              icone={ICONE.email}
+              teclado="email-address"
+              capitalizacao="none"
+              acessibilidadeLabel="Campo de e-mail"
             />
 
-            <TouchableOpacity
-              style={[styles.buttonSecundario, salvandoServidor && { opacity: 0.6 }]}
-              onPress={salvarServidor}
-              disabled={salvandoServidor}
-            >
-              <Text style={styles.buttonSecundarioText}>
-                {salvandoServidor ? 'Salvando...' : 'Salvar endereço'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={usarPadrao}>
-              <Text style={styles.link}>Restaurar padrão</Text>
-            </TouchableOpacity>
+            <Campo
+              rotulo="Senha"
+              valor={senha}
+              aoMudar={setSenha}
+              placeholder="Sua senha"
+              seguro
+              capitalizacao="none"
+              aoEnviar={entrar}
+              acessibilidadeLabel="Campo de senha"
+            />
           </View>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          <Botao
+            titulo={carregando ? 'Entrando...' : 'Entrar'}
+            onPress={entrar}
+            carregando={carregando}
+            estilo={styles.botaoEntrar}
+          />
+
+          <Pressable
+            onPress={() => navigation?.navigate?.('EsqueciSenha')}
+            accessibilityRole="button"
+            accessibilityLabel="Esqueci minha senha"
+            style={({ pressed }) => [styles.esqueci, pressed && { opacity: 0.6 }]}
+          >
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.esqueciTexto}>
+              Esqueci minha senha
+            </Text>
+          </Pressable>
+
+          <Botao
+            titulo="Criar conta"
+            variante="texto"
+            onPress={() => navigation?.navigate?.('Cadastro')}
+          />
+
+          <Pressable
+            onPress={() => setMostrarServidor((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel="Configurar endereço do servidor"
+            accessibilityState={{ expanded: mostrarServidor }}
+            style={({ pressed }) => [styles.servidorToggle, pressed && { opacity: 0.6 }]}
+          >
+            <Ionicons name={ICONE.dados} size={layout.icone['1']} color={cores.texto.secundario} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.servidorLink}>
+              Servidor: {servidorAtual || 'detectando...'}
+            </Text>
+            <Ionicons
+              name={mostrarServidor ? 'chevron-up' : 'chevron-down'}
+              size={layout.icone['1']}
+              color={cores.texto.secundario}
+            />
+          </Pressable>
+
+          {mostrarServidor && (
+            <View style={styles.servidorBox}>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.servidorTitulo}>
+                Endereço da API
+              </Text>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.servidorAjuda}>
+                Use o IP do computador que está rodando a API, por exemplo 192.168.1.63:8082.
+              </Text>
+
+              <Campo
+                valor={servidor}
+                aoMudar={setServidor}
+                placeholder="http://192.168.1.63:8082"
+                capitalizacao="none"
+                teclado="url"
+                acessibilidadeLabel="Endereço da API"
+              />
+
+              <Botao
+                titulo={salvandoServidor ? 'Salvando...' : 'Salvar endereço'}
+                variante="secundario"
+                onPress={salvarServidor}
+                carregando={salvandoServidor}
+              />
+
+              <Botao titulo="Restaurar padrão" variante="texto" onPress={usarPadrao} />
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  flex: { flex: 1 },
+  scroll: {
     flexGrow: 1,
-    padding: 24,
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    paddingHorizontal: espaco['6'],
+    paddingVertical: espaco['10'],
   },
-  marca: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 26 },
-  marcaAzul: { fontSize: 28, fontWeight: '800', color: '#1565c0' },
-  marcaDourada: { fontSize: 28, fontWeight: '800', color: '#c8860a' },
-  title: { fontSize: 26, fontWeight: '800', marginBottom: 4, color: '#1a1a2e' },
-  subtitle: { fontSize: 13.5, color: '#64748b', marginBottom: 22 },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    color: '#1a1a2e',
+  marca: { flexDirection: 'row', alignItems: 'baseline', marginBottom: espaco['6'] },
+  marcaAzul: { ...tipografia.marca, color: cores.marca.azul },
+  marcaDourada: { ...tipografia.marca, color: cores.marca.dourado },
+  title: { ...tipografia.tituloTela, color: cores.texto.principal, marginBottom: espaco['1'] },
+  subtitle: {
+    ...tipografia.corpoPequeno,
+    color: cores.texto.secundario,
+    marginBottom: espaco['6'],
   },
-  button: {
-    backgroundColor: '#1565c0',
-    borderRadius: 10,
-    paddingVertical: 14,
+  formulario: { gap: espaco['4'] },
+  botaoEntrar: { marginTop: espaco['6'] },
+  esqueci: {
+    minHeight: 48,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: -espaco['2'],
   },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  link: { textAlign: 'center', color: '#1565c0', marginTop: 14, fontWeight: '600' },
-  servidorLink: { textAlign: 'center', color: '#94a3b8', marginTop: 22, fontSize: 12 },
+  esqueciTexto: { ...tipografia.rotulo, color: cores.marca.azul },
+  servidorToggle: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espaco['1'],
+    marginTop: espaco['2'],
+  },
+  servidorLink: { ...tipografia.legenda, color: cores.texto.secundario },
   servidorBox: {
-    marginTop: 14,
-    padding: 14,
-    borderRadius: 12,
+    backgroundColor: cores.superficie.suave,
+    borderRadius: raio['2'],
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
+    borderColor: cores.borda.suave,
+    padding: espaco['4'],
+    gap: espaco['3'],
+    marginTop: espaco['1'],
   },
-  servidorAjuda: { fontSize: 12, color: '#64748b', marginBottom: 10, lineHeight: 17 },
-  buttonSecundario: {
-    backgroundColor: '#e0f2fe',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  buttonSecundarioText: { color: '#1565c0', fontWeight: '700' },
+  servidorTitulo: { ...tipografia.corpoForte, color: cores.texto.principal },
+  servidorAjuda: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
 });

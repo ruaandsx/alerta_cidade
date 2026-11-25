@@ -23,10 +23,9 @@ import ReportSuccessScreen        from './src/screens/ReportSuccessScreen';
 import ProfileScreen              from './src/screens/ProfileScreen';
 import MyDataScreen               from './src/screens/MyDataScreen';
 import HistoricoScreen            from './src/screens/HistoricoScreen';
-import SupportScreen              from './src/screens/SupportScreen';
-import AboutScreen                from './src/screens/AboutScreen';
 import NotificationScreen from './src/screens/NotificationScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
+import AboutScreen from './src/screens/AboutScreen';
 import ReportDetailScreen from './src/screens/ReportDetailScreen';
 import AssistenteScreen from './src/screens/AssistenteScreen';
 
@@ -51,7 +50,7 @@ export type RootStackParamList = {
   LoginSucess: undefined;
   Home: undefined;
   NewReport: { ocorrencia?: any } | undefined;
-  ReportSuccess: undefined;
+  ReportSuccess: { ocorrencia?: any } | undefined;
   ReportDetail: { item: any };
   Profile: undefined;
   MeusDados: undefined;
@@ -65,8 +64,8 @@ export type RootStackParamList = {
   AdminReportDetail: { item: any };
   Assistente: undefined;
   AddUserStep1: undefined;
-  AddUserStep2: undefined;
-  AddUserStep3: undefined;
+  AddUserStep2: { dados?: any } | undefined;
+  AddUserStep3: { dados?: any; tipo?: 'USER' | 'ADMIN' } | undefined;
 };
 
 export default function App() {

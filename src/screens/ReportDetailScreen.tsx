@@ -1,6 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, Linking, TextInput, ActivityIndicator } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+import BlocoLocalizacao from '../components/BlocoLocalizacao';
+import Botao from '../components/Botao';
+import Header from '../components/Header';
+import { SeloStatus, SeloUrgencia } from '../components/Selos';
+import {
+  FONTE_MAXIMA,
+  cores,
+  elevacao,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE, iconeCategoria } from '../theme/icones';
 import {
   deletarOcorrencia,
   buscarOcorrencia,
@@ -8,12 +36,8 @@ import {
   criarComentario,
   Ocorrencia,
   tituloCategoria,
-  emojiCategoria,
-  enderecoOcorrencia,
   rotuloStatus,
   corStatus,
-  rotuloUrgencia,
-  corUrgencia,
 } from '../services/ocorrenciaService';
 import { fonteImagem, FonteImagem } from '../services/api';
 import { getUsuarioLogado } from '../services/auth';
@@ -94,7 +118,7 @@ export default function ReportDetailScreen({ route, navigation }: any) {
   }
 
   function abrirMapa() {
-    if (!item.latitude || !item.longitude) {
+    if (item.latitude == null || item.longitude == null) {
       Alert.alert('Sem localização', 'Esta ocorrência não possui coordenadas.');
       return;
     }
@@ -106,180 +130,208 @@ export default function ReportDetailScreen({ route, navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()}>
-          <Text style={styles.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Detalhes da ocorrência</Text>
-        {podeGerenciar ? (
-          <TouchableOpacity onPress={apagar}>
-            <Text style={styles.trash}>🗑️</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 22 }} />
-        )}
-      </View>
+      <StatusBar barStyle="dark-content" />
+
+      <Header
+        variante="tela"
+        titulo="Detalhes da ocorrência"
+        subtitulo={
+          item.protocolo ? `Protocolo ${item.protocolo}` : item.id ? `Ocorrência #${item.id}` : ''
+        }
+        onVoltar={() => navigation?.goBack?.()}
+        acoes={
+          podeGerenciar ? (
+            <Pressable
+              onPress={apagar}
+              accessibilityRole="button"
+              accessibilityLabel="Apagar ocorrência"
+              hitSlop={4}
+              style={({ pressed }) => [styles.acaoExcluir, pressed && { opacity: 0.6 }]}
+            >
+              <Ionicons
+                name={ICONE.excluir}
+                size={layout.icone['2']}
+                color={cores.estado.erroTexto}
+              />
+            </Pressable>
+          ) : undefined
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.imageBox}>
+        <View style={styles.imagemBox}>
           {imagem ? (
-            <Image
-              source={imagem}
-              style={styles.image}
-              onError={() => setImagem(null)}
-            />
+            <Image source={imagem} style={styles.imagem} onError={() => setImagem(null)} />
           ) : (
-            <Text style={styles.emoji}>{emojiCategoria(item.categoria)}</Text>
+            <Ionicons name={iconeCategoria(item.categoria)} size={48} color={cores.marca.azul} />
           )}
 
           {carregando && (
             <View style={styles.carregandoImagem}>
-              <ActivityIndicator color="#1565c0" />
+              <ActivityIndicator color={cores.marca.azul} />
             </View>
           )}
         </View>
 
         <View style={styles.card}>
-          <View style={styles.cabecalho}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{tituloCategoria(item.categoria)}</Text>
-              <Text style={styles.protocolo}>
-                {item.protocolo ? `Protocolo ${item.protocolo}` : `Ocorrência #${item.id}`}
-              </Text>
-            </View>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.cardTitulo}>
+            {tituloCategoria(item.categoria)}
+          </Text>
 
-            <View style={[styles.statusPill, { backgroundColor: `${corStatus(item.status)}18` }]}>
-              <View style={[styles.statusDot, { backgroundColor: corStatus(item.status) }]} />
-              <Text style={[styles.statusText, { color: corStatus(item.status) }]}>
-                {rotuloStatus(item.status)}
-              </Text>
-            </View>
+          <View style={styles.selosLinha}>
+            <SeloStatus status={item.status} />
+            <SeloUrgencia urgencia={item.urgencia} />
           </View>
 
-          <Text style={styles.label}>Descrição</Text>
-          <Text style={styles.text}>{item.descricao || 'Sem descrição'}</Text>
+          <View style={styles.campoBloco}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotulo}>
+              Descrição
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.texto}>
+              {item.descricao || 'Sem descrição'}
+            </Text>
+          </View>
 
-          <Text style={styles.label}>Endereço</Text>
-          <Text style={styles.text}>{enderecoOcorrencia(item)}</Text>
-
-          {!!item.referencia && (
-            <>
-              <Text style={styles.label}>Referência</Text>
-              <Text style={styles.text}>{item.referencia}</Text>
-            </>
-          )}
-
-          <View style={styles.duasColunas}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Urgência</Text>
-              <View style={styles.grauRow}>
-                <View style={[styles.grauDot, { backgroundColor: corUrgencia(item.urgencia) }]} />
-                <Text style={styles.text}>{rotuloUrgencia(item.urgencia)}</Text>
-              </View>
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Registrada em</Text>
-              <Text style={styles.text}>
+          <View style={styles.linhaDupla}>
+            <View style={styles.campoBloco}>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotulo}>
+                Registrada em
+              </Text>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.texto}>
                 {item.dataCriacao
                   ? new Date(item.dataCriacao).toLocaleString('pt-BR')
                   : 'Não informada'}
               </Text>
             </View>
+
+            {!!item.usuario?.nome && (
+              <View style={styles.campoBloco}>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotulo}>
+                  Registrada por
+                </Text>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.texto}>
+                  {item.usuario.nome}
+                </Text>
+              </View>
+            )}
           </View>
 
-          {!!item.usuario?.nome && (
-            <>
-              <Text style={styles.label}>Registrada por</Text>
-              <Text style={styles.text}>{item.usuario.nome}</Text>
-            </>
-          )}
-
-          {!!item.latitude && !!item.longitude && (
-            <TouchableOpacity style={styles.mapaBtn} onPress={abrirMapa}>
-              <Text style={styles.mapaBtnText}>📍 Abrir localização no mapa</Text>
-            </TouchableOpacity>
-          )}
+          <BlocoLocalizacao
+            rua={item.rua}
+            bairro={item.bairro}
+            referencia={item.referencia}
+            latitude={item.latitude}
+            longitude={item.longitude}
+            aoAbrirMapa={abrirMapa}
+          />
         </View>
 
         {!!item.historico?.length && (
-          <View style={styles.historicoCard}>
-            <Text style={styles.sectionTitle}>Histórico</Text>
+          <View style={styles.card}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.secaoTitulo}>
+              Histórico
+            </Text>
 
             {item.historico.map((h) => (
               <View key={h.id} style={styles.historicoItem}>
-                <View style={[styles.historicoDot, { backgroundColor: corStatus(h.statusNovo) }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.historicoTitulo}>
+                <View style={[styles.historicoPonto, { backgroundColor: corStatus(h.statusNovo) }]} />
+                <View style={styles.historicoConteudo}>
+                  <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.historicoTitulo}>
                     {h.statusNovoLabel || rotuloStatus(h.statusNovo)}
                   </Text>
-                  <Text style={styles.historicoData}>
+                  <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.historicoData}>
                     {h.dataCriacao ? new Date(h.dataCriacao).toLocaleString('pt-BR') : ''}
                     {h.usuarioNome ? ` · ${h.usuarioNome}` : ''}
                   </Text>
-                  {!!h.observacao && <Text style={styles.historicoObs}>{h.observacao}</Text>}
+                  {!!h.observacao && (
+                    <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.historicoObs}>
+                      {h.observacao}
+                    </Text>
+                  )}
                 </View>
               </View>
             ))}
           </View>
         )}
 
-        <View style={styles.comentariosCard}>
-          <Text style={styles.sectionTitle}>Comentários ({comentarios.length})</Text>
+        <View style={styles.card}>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.secaoTitulo}>
+            Comentários ({comentarios.length})
+          </Text>
 
           {comentarios.length === 0 && (
-            <Text style={styles.vazio}>Nenhum comentário ainda.</Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.vazio}>
+              Nenhum comentário ainda.
+            </Text>
           )}
 
           {comentarios.map((c, index) => (
             <View key={c.id || index} style={styles.comentarioRow}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.avatarTexto}>
                   {(c.usuario?.nome || 'U').substring(0, 2).toUpperCase()}
                 </Text>
               </View>
 
-              <View style={{ flex: 1 }}>
+              <View style={styles.comentarioConteudo}>
                 <View style={styles.comentarioTopo}>
-                  <Text style={styles.comentarioNome}>{c.usuario?.nome || 'Usuário'}</Text>
-                  <Text style={styles.comentarioData}>
+                  <Text
+                    maxFontSizeMultiplier={FONTE_MAXIMA}
+                    numberOfLines={1}
+                    style={styles.comentarioNome}
+                  >
+                    {c.usuario?.nome || 'Usuário'}
+                  </Text>
+                  <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.comentarioData}>
                     {c.dataCriacao ? new Date(c.dataCriacao).toLocaleDateString('pt-BR') : ''}
                   </Text>
                 </View>
-                <Text style={styles.comentarioTexto}>{c.texto}</Text>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.comentarioTexto}>
+                  {c.texto}
+                </Text>
               </View>
             </View>
           ))}
 
-          <View style={styles.novoComentario}>
+          <View style={styles.envioLinha}>
             <TextInput
               style={styles.comentarioInput}
               placeholder="Escreva um comentário..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={cores.texto.placeholder}
               value={novoComentario}
               onChangeText={setNovoComentario}
+              maxFontSizeMultiplier={FONTE_MAXIMA}
+              accessibilityLabel="Campo de comentário"
               multiline
             />
 
-            <TouchableOpacity style={styles.enviarBtn} onPress={comentar}>
-              <Text style={styles.enviarBtnText}>Enviar</Text>
-            </TouchableOpacity>
+            <Pressable
+              onPress={comentar}
+              accessibilityRole="button"
+              accessibilityLabel="Enviar comentário"
+              hitSlop={4}
+              style={({ pressed }) => [styles.enviar, pressed && { opacity: 0.8 }]}
+            >
+              <Ionicons name={ICONE.enviar} size={layout.icone['2']} color={cores.texto.inverso} />
+            </Pressable>
           </View>
         </View>
 
         {podeGerenciar && (
-          <>
-            <TouchableOpacity
-              style={styles.button}
+          <View style={styles.acoesFinais}>
+            <Botao
+              titulo="Editar ocorrência"
+              icone={ICONE.editar}
               onPress={() => navigation?.navigate('NewReport', { ocorrencia: item })}
-            >
-              <Text style={styles.buttonText}>Editar ocorrência</Text>
-            </TouchableOpacity>
+            />
 
-            <TouchableOpacity style={styles.deleteButton} onPress={apagar}>
-              <Text style={styles.deleteText}>Apagar ocorrência</Text>
-            </TouchableOpacity>
-          </>
+            <Botao
+              titulo="Apagar ocorrência"
+              icone={ICONE.excluir}
+              variante="destrutivo"
+              onPress={apagar}
+            />
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -287,140 +339,123 @@ export default function ReportDetailScreen({ route, navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-  },
-  back: { fontSize: 24, color: '#1a1a2e' },
-  trash: { fontSize: 22 },
-  title: { fontSize: 18, fontWeight: '700', color: '#1a1a2e' },
-  scroll: { padding: 16, paddingBottom: 32 },
-  imageBox: {
-    height: 220,
-    borderRadius: 18,
-    backgroundColor: '#d6eef8',
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  acaoExcluir: {
+    width: 48,
+    height: 48,
+    borderRadius: raio.pill,
+    backgroundColor: cores.estado.erroFundo,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+  },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['8'],
+    gap: espaco['4'],
+  },
+  imagemBox: {
+    height: 220,
+    borderRadius: raio['3'],
+    backgroundColor: cores.superficie.azul,
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
   },
-  image: { width: '100%', height: '100%' },
-  emoji: { fontSize: 54 },
-  carregandoImagem: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.55)' },
-  card: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+  imagem: { width: '100%', height: '100%' },
+  carregandoImagem: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.55)',
   },
-  cabecalho: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
-  cardTitle: { fontSize: 20, fontWeight: '800', color: '#1565c0' },
-  protocolo: { fontSize: 11.5, color: '#94a3b8', marginTop: 2, fontWeight: '600' },
-  statusPill: {
+  card: {
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    padding: espaco['4'],
+    gap: espaco['3'],
+    ...elevacao[1],
+  },
+  cardTitulo: { ...tipografia.tituloSecao, color: cores.texto.principal },
+  selosLinha: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 999,
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: espaco['2'],
   },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusText: { fontSize: 11.5, fontWeight: '700' },
-  label: { fontSize: 12, fontWeight: '700', color: '#64748b', marginTop: 12 },
-  text: { fontSize: 14, color: '#1a1a2e', lineHeight: 20, marginTop: 2 },
-  duasColunas: { flexDirection: 'row', gap: 12 },
-  grauRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  grauDot: { width: 10, height: 10, borderRadius: 5 },
-  mapaBtn: {
-    marginTop: 14,
-    backgroundColor: '#e0f2fe',
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
+  campoBloco: { gap: 2, flex: 1 },
+  linhaDupla: { flexDirection: 'row', gap: espaco['3'], flexWrap: 'wrap' },
+  rotulo: { ...tipografia.legenda, color: cores.texto.secundario },
+  texto: { ...tipografia.corpo, color: cores.texto.principal },
+  secaoTitulo: { ...tipografia.tituloSecao, color: cores.texto.principal },
+  historicoItem: { flexDirection: 'row', gap: espaco['2'] },
+  historicoPonto: {
+    width: 12,
+    height: 12,
+    borderRadius: raio.pill,
+    marginTop: 6,
+    flexShrink: 0,
   },
-  mapaBtnText: { color: '#1565c0', fontWeight: '700', fontSize: 13 },
-  historicoCard: {
-    marginTop: 14,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  sectionTitle: { fontSize: 15.5, fontWeight: '800', color: '#1a1a2e', marginBottom: 10 },
-  historicoItem: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  historicoDot: { width: 10, height: 10, borderRadius: 5, marginTop: 5 },
-  historicoTitulo: { fontSize: 13.5, fontWeight: '700', color: '#1a1a2e' },
-  historicoData: { fontSize: 11.5, color: '#94a3b8', marginTop: 1 },
+  historicoConteudo: { flex: 1, gap: 2 },
+  historicoTitulo: { ...tipografia.corpoForte, color: cores.texto.principal },
+  historicoData: { ...tipografia.legendaNormal, color: cores.texto.secundario },
   historicoObs: {
-    fontSize: 12.5,
-    color: '#475569',
-    marginTop: 5,
-    backgroundColor: '#f8fafc',
-    borderRadius: 8,
-    padding: 8,
+    ...tipografia.corpoPequeno,
+    color: cores.texto.secundario,
+    backgroundColor: cores.superficie.suave,
+    borderRadius: raio['1'],
+    padding: espaco['2'],
+    marginTop: espaco['1'],
   },
-  comentariosCard: {
-    marginTop: 14,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  vazio: { fontSize: 13, color: '#94a3b8', marginBottom: 8 },
-  comentarioRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  vazio: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  comentarioRow: { flexDirection: 'row', gap: espaco['2'] },
   avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#7c5cbf',
+    width: 36,
+    height: 36,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.azul,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  avatarTexto: { ...tipografia.legenda, color: cores.marca.azulEscuro },
+  comentarioConteudo: { flex: 1, gap: 2 },
+  comentarioTopo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: espaco['2'],
+  },
+  comentarioNome: { ...tipografia.rotulo, color: cores.texto.principal, flex: 1 },
+  comentarioData: { ...tipografia.legendaNormal, color: cores.texto.secundario },
+  comentarioTexto: { ...tipografia.corpoPequeno, color: cores.texto.principal },
+  envioLinha: { flexDirection: 'row', alignItems: 'flex-end', gap: espaco['2'] },
+  comentarioInput: {
+    flex: 1,
+    minHeight: 48,
+    maxHeight: 120,
+    borderRadius: raio.pill,
+    borderWidth: 2,
+    borderColor: cores.borda.forte,
+    paddingHorizontal: espaco['4'],
+    paddingVertical: espaco['2'],
+    ...tipografia.corpoPequeno,
+    color: cores.texto.principal,
+  },
+  enviar: {
+    width: 48,
+    height: 48,
+    borderRadius: raio.pill,
+    backgroundColor: cores.marca.azul,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-  comentarioTopo: { flexDirection: 'row', justifyContent: 'space-between' },
-  comentarioNome: { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
-  comentarioData: { fontSize: 11, color: '#94a3b8' },
-  comentarioTexto: { fontSize: 13, color: '#334155', lineHeight: 19, marginTop: 2 },
-  novoComentario: { flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 4 },
-  comentarioInput: {
-    flex: 1,
-    minHeight: 42,
-    maxHeight: 110,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
-    color: '#1a1a2e',
-  },
-  enviarBtn: {
-    backgroundColor: '#1565c0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  enviarBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  button: {
-    marginTop: 16,
-    backgroundColor: '#1565c0',
-    borderRadius: 14,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  deleteButton: {
-    marginTop: 10,
-    backgroundColor: '#fee2e2',
-    borderRadius: 14,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  deleteText: { color: '#dc2626', fontWeight: '700', fontSize: 15 },
+  acoesFinais: { gap: espaco['3'] },
 });

@@ -1,259 +1,221 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Image } from 'react-native';
+import { RefreshControl, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
+import BarraInferior from '../components/BarraInferior';
+import CardOcorrencia from '../components/CardOcorrencia';
+import Header from '../components/Header';
+import { Carregando, ErroLista, Vazio } from '../components/Estados';
+import {
+  FONTE_MAXIMA,
+  cores,
+  elevacao,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE } from '../theme/icones';
 import {
   listarMinhasOcorrencias,
   obterMinhasEstatisticas,
-  Ocorrencia,
-  tituloCategoria,
-  emojiCategoria,
-  enderecoOcorrencia,
-  rotuloStatus,
-  corStatus,
-  rotuloUrgencia,
-  corUrgencia,
+  type Ocorrencia,
 } from '../services/ocorrenciaService';
-import { fonteImagem, FonteImagem } from '../services/api';
+import { fonteImagem, type FonteImagem } from '../services/api';
 
 type Props = { navigation?: any };
 
+type Resumo = { total: number; abertas: number; resolvidas: number };
 
 export default function HistoricoScreen({ navigation }: Props) {
-  const [ocorrencias, setOcorrencias] = useState<any[]>([]);
+  const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [imagens, setImagens] = useState<Record<number, FonteImagem | null>>({});
-  const [resumo, setResumo] = useState<{ total: number; resolvidas: number; abertas: number }>({
-    total: 0,
-    resolvidas: 0,
-    abertas: 0,
-  });
+  const [falhas, setFalhas] = useState<Record<number, boolean>>({});
+  const [resumo, setResumo] = useState<Resumo>({ total: 0, abertas: 0, resolvidas: 0 });
   const [carregando, setCarregando] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
+  const [erro, setErro] = useState(false);
 
   useEffect(() => {
-    carregarHistorico();
+    carregar();
 
-    const unsubscribe = navigation?.addListener?.('focus', () => {
-      carregarHistorico();
-    });
-
+    const unsubscribe = navigation?.addListener?.('focus', () => carregar(false));
     return unsubscribe;
   }, [navigation]);
 
-  async function carregarHistorico() {
+  async function carregar(mostrarLoading = true) {
     try {
-      setCarregando(true);
+      if (mostrarLoading) setCarregando(true);
+      setErro(false);
 
-      const [data, estatisticas] = await Promise.all([
+      const [lista, estatisticas] = await Promise.all([
         listarMinhasOcorrencias({ size: 100 }),
         obterMinhasEstatisticas().catch(() => null),
       ]);
 
-      const formatadas = data.map((item: Ocorrencia) => ({
-        id: item.id,
-        titulo: tituloCategoria(item.categoria),
-        endereco: enderecoOcorrencia(item),
-        status: rotuloStatus(item.status),
-        statusCor: corStatus(item.status),
-        grau: rotuloUrgencia(item.urgencia),
-        grauCor: corUrgencia(item.urgencia),
-        data: item.dataCriacao ? new Date(item.dataCriacao).toLocaleDateString('pt-BR') : '',
-        emoji: emojiCategoria(item.categoria),
-        temImagem: item.temImagem,
-        original: item,
-      }));
-
-      setOcorrencias(formatadas);
+      setOcorrencias(lista);
 
       if (estatisticas) {
         setResumo({
-          total: estatisticas.total || 0,
-          resolvidas: estatisticas.porStatus?.RESOLVIDO || 0,
+          total: estatisticas.total || lista.length,
           abertas:
-            (estatisticas.porStatus?.RECEBIDO || 0) + (estatisticas.porStatus?.EM_ANALISE || 0),
+            (estatisticas.porStatus?.RECEBIDO || 0) +
+            (estatisticas.porStatus?.EM_ANALISE || 0) +
+            (estatisticas.porStatus?.EM_ANDAMENTO || 0),
+          resolvidas: estatisticas.porStatus?.RESOLVIDO || 0,
+        });
+      } else {
+        setResumo({
+          total: lista.length,
+          abertas: lista.filter((i) => i.status !== 'RESOLVIDO').length,
+          resolvidas: lista.filter((i) => i.status === 'RESOLVIDO').length,
         });
       }
 
+      const comImagem = lista.filter((item) => item.id && item.temImagem);
+
       const entradas = await Promise.all(
-        data
-          .filter((item) => item.id && item.temImagem)
-          .map(async (item) => [item.id as number, await fonteImagem(item.id, true)] as const),
+        comImagem.map(async (item) => {
+          try {
+            const fonte = await fonteImagem(item.id, true);
+            return [item.id as number, fonte] as const;
+          } catch {
+            return [item.id as number, null] as const;
+          }
+        }),
       );
 
       setImagens(Object.fromEntries(entradas));
-    } catch (error) {
-      console.log('Erro ao carregar histórico:', error);
+    } catch (e) {
+      console.log('Erro ao carregar histórico:', e);
       setOcorrencias([]);
+      setErro(true);
     } finally {
       setCarregando(false);
+      setAtualizando(false);
     }
   }
-
-  function formatarTitulo(categoria?: string) {
-    return tituloCategoria(categoria);
-  }
-
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()} activeOpacity={0.7}>
-          <Text style={styles.backArrow}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Histórico de ocorrência</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <Header
+        variante="tela"
+        titulo="Histórico"
+        subtitulo="Suas ocorrências registradas"
+        onVoltar={() => navigation?.goBack?.()}
+      />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
-        <Text style={styles.sectionTitle}>Minhas ocorrências</Text>
-
-        {!carregando && ocorrencias.length > 0 && (
-          <View style={styles.resumoRow}>
-            <View style={styles.resumoItem}>
-              <Text style={styles.resumoValor}>{resumo.total}</Text>
-              <Text style={styles.resumoLabel}>Total</Text>
-            </View>
-            <View style={styles.resumoItem}>
-              <Text style={styles.resumoValor}>{resumo.abertas}</Text>
-              <Text style={styles.resumoLabel}>Em aberto</Text>
-            </View>
-            <View style={styles.resumoItem}>
-              <Text style={[styles.resumoValor, { color: '#16a34a' }]}>{resumo.resolvidas}</Text>
-              <Text style={styles.resumoLabel}>Resolvidas</Text>
-            </View>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={atualizando}
+            onRefresh={() => {
+              setAtualizando(true);
+              carregar(false);
+            }}
+            colors={[cores.marca.azul]}
+            tintColor={cores.marca.azul}
+          />
+        }
+      >
+        <View style={styles.resumo}>
+          <View style={styles.resumoItem}>
+            <Ionicons name={ICONE.ocorrencias} size={layout.icone['2']} color={cores.marca.azul} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoValor}>
+              {resumo.total}
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoRotulo}>
+              Total
+            </Text>
           </View>
-        )}
 
-        {/* Lista de ocorrências */}
-        {carregando && (
-          <Text style={{ textAlign: 'center', color: '#64748b', marginVertical: 20 }}>
-            Carregando histórico...
-          </Text>
-        )}
+          <View style={styles.resumoDivisor} />
 
-        {!carregando && ocorrencias.length === 0 && (
-          <Text style={{ textAlign: 'center', color: '#64748b', marginVertical: 20 }}>
-            Você ainda não registrou nenhuma ocorrência.
-          </Text>
-        )}
-
-        {ocorrencias.map((item, index) => {
-          const imagem = item.id ? imagens[item.id] : null;
-
-          return (
-            <TouchableOpacity
-              key={item.id || index}
-              style={styles.card}
-              onPress={() => navigation?.navigate('ReportDetail', { item: item.original || item })}
-              activeOpacity={0.8}
-            >
-              {/* Imagem/thumbnail */}
-              <View style={styles.thumbnail}>
-                {imagem ? (
-                  <Image source={imagem} style={styles.thumbnailImage} />
-                ) : (
-                  <Text style={styles.thumbnailEmoji}>{item.emoji}</Text>
-                )}
-              </View>
-
-              {/* Info */}
-              <View style={styles.cardInfo}>
-                <Text style={styles.cardTitulo}>{item.titulo}</Text>
-                <Text style={styles.cardEndereco}>{item.endereco}</Text>
-                <Text style={[styles.cardStatus, { color: item.statusCor }]}>
-                  Status: {item.status}
-                </Text>
-                <View style={styles.cardBottom}>
-                  <View style={styles.grauRow}>
-                    <View style={[styles.grauDot, { backgroundColor: item.grauCor }]} />
-                    <Text style={styles.grauText}>{item.grau}</Text>
-                  </View>
-                  <Text style={styles.cardData}>{item.data}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* Banner fique por dentro */}
-        <View style={styles.bannerCard}>
-          <View style={styles.bannerIcon}>
-            <Text style={styles.bannerEmoji}>🔔</Text>
+          <View style={styles.resumoItem}>
+            <Ionicons name={ICONE.pendente} size={layout.icone['2']} color={cores.urgencia.media} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoValor}>
+              {resumo.abertas}
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoRotulo}>
+              Em aberto
+            </Text>
           </View>
-          <View style={styles.bannerText}>
-            <Text style={styles.bannerTitle}>Fique por dentro!</Text>
-            <Text style={styles.bannerDesc}>Acompanhe suas ocorrência.</Text>
+
+          <View style={styles.resumoDivisor} />
+
+          <View style={styles.resumoItem}>
+            <Ionicons name={ICONE.resolvido} size={layout.icone['2']} color={cores.estado.sucessoGrafico} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoValor}>
+              {resumo.resolvidas}
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoRotulo}>
+              Resolvidas
+            </Text>
           </View>
         </View>
 
+        {carregando ? (
+          <Carregando texto="Carregando seu histórico..." />
+        ) : erro ? (
+          <ErroLista
+            descricao="Não conseguimos buscar suas ocorrências agora."
+            aoTentarDeNovo={() => carregar()}
+          />
+        ) : ocorrencias.length === 0 ? (
+          <Vazio
+            titulo="Nenhuma ocorrência ainda"
+            descricao="Quando você registrar um problema da cidade, ele aparece aqui para acompanhamento."
+            icone={ICONE.historico}
+            acao={{ titulo: 'Registrar ocorrência', onPress: () => navigation?.navigate?.('NewReport') }}
+          />
+        ) : (
+          <View style={styles.lista}>
+            {ocorrencias.map((item) => (
+              <CardOcorrencia
+                key={item.id}
+                item={item}
+                imagem={falhas[item.id as number] ? null : item.id ? imagens[item.id] : null}
+                onPress={() => navigation?.navigate?.('ReportDetail', { item })}
+                aoFalharImagem={() =>
+                  setFalhas((prev) => ({ ...prev, [item.id as number]: true }))
+                }
+              />
+            ))}
+          </View>
+        )}
       </ScrollView>
 
-      {/* Bottom Nav */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('Home')} activeOpacity={0.7}>
-          <Text style={styles.navIcon}>🏠</Text>
-          <Text style={styles.navLabel}>Inicio</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItemCenter} onPress={() => navigation?.navigate('NewReport')} activeOpacity={0.7}>
-          <Text style={styles.navPlus}>+</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('Profile')} activeOpacity={0.7}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
-
+      <BarraInferior ativo="perfil" navigation={navigation} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:       { flex: 1, backgroundColor: '#fff' },
-
-  /* Header */
-  header:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
-  backArrow:       { fontSize: 22, color: '#1a1a2e' },
-  headerTitle:     { fontSize: 18, fontWeight: '700', color: '#1a1a2e' },
-
-  scroll:          { paddingHorizontal: 16, paddingBottom: 24 },
-  sectionTitle:    { fontSize: 18, fontWeight: '700', color: '#1a1a2e', textAlign: 'center', marginBottom: 16, marginTop: 4 },
-
-  resumoRow:       { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  resumoItem:      { flex: 1, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
-  resumoValor:     { fontSize: 20, fontWeight: '800', color: '#1565c0' },
-  resumoLabel:     { fontSize: 11, color: '#64748b', fontWeight: '600', marginTop: 2 },
-
-  /* Card ocorrência */
-  card:            { flexDirection: 'row', borderRadius: 14, borderWidth: 1.5, borderColor: '#5bb8d4', padding: 12, marginBottom: 12, gap: 12, alignItems: 'flex-start' },
-  thumbnail:       { width: 80, height: 80, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', backgroundColor: '#d6eef8' },
-  thumbnailImage:  { width: '100%', height: '100%' },
-  thumbnailEmoji:  { fontSize: 36 },
-  cardInfo:        { flex: 1 },
-  cardTitulo:      { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  cardEndereco:    { fontSize: 12, color: '#64748b', marginBottom: 2 },
-  cardStatus:      { fontSize: 12, color: '#64748b', marginBottom: 6 },
-  cardBottom:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  grauRow:         { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  grauDot:         { width: 10, height: 10, borderRadius: 5 },
-  grauText:        { fontSize: 12, fontWeight: '500', color: '#1a1a2e' },
-  cardData:        { fontSize: 11, color: '#94a3b8' },
-
-  /* Banner */
-  bannerCard:      { backgroundColor: '#7ec8e3', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 4 },
-  bannerIcon:      { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  bannerEmoji:     { fontSize: 24 },
-  bannerText:      { flex: 1 },
-  bannerTitle:     { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  bannerDesc:      { fontSize: 13, color: '#1a3a5c' },
-
-  /* Bottom Nav */
-  bottomNav:       { flexDirection: 'row', backgroundColor: '#7ec8e3', paddingVertical: 10, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)' },
-  navItem:         { alignItems: 'center', gap: 2 },
-  navItemCenter:   { width: 52, height: 52, borderRadius: 26, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', marginTop: -24, elevation: 4 },
-  navPlus:         { fontSize: 30, color: '#1a1a2e', lineHeight: 34 },
-  navIcon:         { fontSize: 22 },
-  navLabel:        { fontSize: 11, fontWeight: '500', color: '#1a3a5c' },
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['6'],
+    gap: espaco['4'],
+  },
+  resumo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    paddingVertical: espaco['4'],
+    ...elevacao[1],
+  },
+  resumoItem: { flex: 1, alignItems: 'center', gap: 2 },
+  resumoDivisor: { width: 1, height: 48, backgroundColor: cores.borda.suave },
+  resumoValor: { ...tipografia.tituloTela, color: cores.texto.principal },
+  resumoRotulo: { ...tipografia.legenda, color: cores.texto.secundario },
+  lista: { gap: espaco['4'] },
 });

@@ -1,4 +1,5 @@
 import { apiRequest, extrairLista } from './api';
+import { cores } from '../theme/tokens';
 
 export type CategoriaOcorrencia =
   | 'ILUMINACAO'
@@ -262,16 +263,16 @@ export const ROTULO_URGENCIA: Record<string, string> = {
 };
 
 export const COR_STATUS: Record<string, string> = {
-  RECEBIDO: '#2563eb',
-  EM_ANALISE: '#d97706',
-  EM_ANDAMENTO: '#7c3aed',
-  RESOLVIDO: '#16a34a',
+  RECEBIDO: cores.status.recebido.grafico,
+  EM_ANALISE: cores.status.analise.grafico,
+  EM_ANDAMENTO: cores.status.andamento.grafico,
+  RESOLVIDO: cores.status.resolvido.grafico,
 };
 
 export const COR_URGENCIA: Record<string, string> = {
-  BAIXA: '#22c55e',
-  MEDIA: '#f59e0b',
-  ALTA: '#ef4444',
+  BAIXA: cores.urgencia.baixa,
+  MEDIA: cores.urgencia.media,
+  ALTA: cores.urgencia.alta,
 };
 
 export function tituloCategoria(categoria?: string): string {

@@ -48,3 +48,32 @@ export async function tornarAdmin(id: number): Promise<UsuarioAdmin> {
 export async function tornarUsuario(id: number): Promise<UsuarioAdmin> {
   return await apiRequest(`/usuarios/${id}/user`, { method: 'PUT' });
 }
+
+export type NovoUsuario = {
+  nome: string;
+  email: string;
+  senha: string;
+  telefone?: string;
+  cidade?: string;
+};
+
+/**
+ * Cria a conta pelo endpoint público de cadastro e, quando o admin escolhe
+ * "Administrador", promove o usuário recém-criado. A chamada de cadastro é
+ * feita sem salvar sessão, então o admin continua logado.
+ */
+export async function criarUsuario(dados: NovoUsuario, admin = false): Promise<UsuarioAdmin> {
+  const criado = await apiRequest<any>('/auth/cadastro', {
+    method: 'POST',
+    auth: false,
+    body: dados,
+  });
+
+  const id = criado?.id ?? criado?.usuario?.id;
+
+  if (admin && id) {
+    return await tornarAdmin(id);
+  }
+
+  return (criado?.usuario ?? criado) as UsuarioAdmin;
+}

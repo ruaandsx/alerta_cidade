@@ -56,9 +56,9 @@
       ]
     ],
     "extra": {
-      "apiPort": 8080,
-      "apiUrl": "http://192.168.0.10:8080",
-      "apiUrlRemota": "https://api.trycloudflare.com",
+      "apiPort": 8082,
+      "apiUrl": "http://192.168.1.63:8082",
+      "apiUrlAlternativa": "http://192.168.1.63:8080",
       "eas": {
         "projectId": "f67e02d9-7917-4ab7-806d-4537881ff60e"
       }

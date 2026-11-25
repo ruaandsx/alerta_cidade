@@ -1,47 +1,75 @@
 import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, TextInput, Alert, Image, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
+import Botao from '../components/Botao';
+import Campo from '../components/Campo';
+import Header from '../components/Header';
+import {
+  FONTE_MAXIMA,
+  cores,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import {
+  ICONE,
+  ICONE_CATEGORIA,
+  ICONE_URGENCIA,
+  type NomeIcone,
+} from '../theme/icones';
 import {
   criarOcorrencia,
   atualizarOcorrencia,
-  CategoriaOcorrencia,
-  UrgenciaOcorrencia,
+  ROTULO_CATEGORIA,
+  ROTULO_URGENCIA,
+  type CategoriaOcorrencia,
+  type UrgenciaOcorrencia,
+  type Ocorrencia,
 } from '../services/ocorrenciaService';
-import { fonteImagem, FonteImagem } from '../services/api';
+import { fonteImagem, type FonteImagem } from '../services/api';
 
 type Props = { navigation?: any; route?: any };
 
-const categorias = [
-  { icon: '💡', label: 'Iluminação', api: 'ILUMINACAO' },
-  { icon: '🏥', label: 'Saúde\npública', api: 'SAUDE_PUBLICA' },
-  { icon: '🚗', label: 'Trânsito', api: 'TRANSITO' },
-  { icon: '🏗️', label: 'Infraestrutura', api: 'INFRAESTRUTURA' },
-  { icon: '🗑️', label: 'Limpeza', api: 'LIMPEZA' },
-  { icon: '😐', label: 'Outros', api: 'OUTROS' },
-] as const;
+const CATEGORIAS = (Object.keys(ROTULO_CATEGORIA) as CategoriaOcorrencia[]).map((api) => ({
+  api,
+  rotulo: ROTULO_CATEGORIA[api],
+  icone: ICONE_CATEGORIA[api] as NomeIcone,
+}));
 
-const urgencias: { label: string; api: UrgenciaOcorrencia; color: string; active: string }[] = [
-  { label: 'Baixo', api: 'BAIXA', color: '#22c55e', active: '#16a34a' },
-  { label: 'Médio', api: 'MEDIA', color: '#f59e0b', active: '#d97706' },
-  { label: 'Alto', api: 'ALTA', color: '#ef4444', active: '#dc2626' },
+const URGENCIAS: { api: UrgenciaOcorrencia; rotulo: string; icone: NomeIcone; cor: string }[] = [
+  { api: 'BAIXA', rotulo: ROTULO_URGENCIA.BAIXA, icone: ICONE_URGENCIA.BAIXA, cor: cores.urgencia.baixa },
+  { api: 'MEDIA', rotulo: ROTULO_URGENCIA.MEDIA, icone: ICONE_URGENCIA.MEDIA, cor: cores.urgencia.media },
+  { api: 'ALTA', rotulo: ROTULO_URGENCIA.ALTA, icone: ICONE_URGENCIA.ALTA, cor: cores.urgencia.alta },
 ];
 
 export default function NewReportScreen({ navigation, route }: Props) {
-  const ocorrenciaEditando = route?.params?.ocorrencia || null;
+  const ocorrenciaEditando: Ocorrencia | null = route?.params?.ocorrencia || null;
 
-  const [categoriaSelecionada, setCategoriaSelecionada] = useState<number | null>(null);
+  const [categoria, setCategoria] = useState<CategoriaOcorrencia | null>(null);
   const [descricao, setDescricao] = useState('');
-  const [endereco, setEndereco] = useState('');
+  const [rua, setRua] = useState('');
   const [bairro, setBairro] = useState('');
   const [referencia, setReferencia] = useState('');
-  const [urgencia, setUrgencia] = useState<string | null>(null);
+  const [urgencia, setUrgencia] = useState<UrgenciaOcorrencia | null>(null);
   const [imagemBase64, setImagemBase64] = useState<string | null>(null);
   const [imagemExistente, setImagemExistente] = useState<FonteImagem | null>(null);
-  const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(
-    null,
-  );
+  const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(null);
   const [buscandoGps, setBuscandoGps] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
@@ -51,24 +79,16 @@ export default function NewReportScreen({ navigation, route }: Props) {
       return;
     }
 
-    const index = categorias.findIndex((c) => c.api === ocorrenciaEditando.categoria);
-
-    setCategoriaSelecionada(index >= 0 ? index : null);
+    setCategoria(ocorrenciaEditando.categoria || null);
     setDescricao(ocorrenciaEditando.descricao || '');
-    setEndereco(ocorrenciaEditando.rua || '');
+    setRua(ocorrenciaEditando.rua || '');
     setBairro(ocorrenciaEditando.bairro === 'Não informado' ? '' : ocorrenciaEditando.bairro || '');
-    setReferencia(ocorrenciaEditando.referencia === 'App Mobile' ? '' : ocorrenciaEditando.referencia || '');
-    setUrgencia(
-      ocorrenciaEditando.urgencia === 'ALTA'
-        ? 'Alto'
-        : ocorrenciaEditando.urgencia === 'MEDIA'
-          ? 'Médio'
-          : ocorrenciaEditando.urgencia === 'BAIXA'
-            ? 'Baixo'
-            : null,
+    setReferencia(
+      ocorrenciaEditando.referencia === 'App Mobile' ? '' : ocorrenciaEditando.referencia || '',
     );
+    setUrgencia(ocorrenciaEditando.urgencia || null);
 
-    if (ocorrenciaEditando.latitude && ocorrenciaEditando.longitude) {
+    if (ocorrenciaEditando.latitude != null && ocorrenciaEditando.longitude != null) {
       setCoordenadas({
         latitude: ocorrenciaEditando.latitude,
         longitude: ocorrenciaEditando.longitude,
@@ -80,7 +100,9 @@ export default function NewReportScreen({ navigation, route }: Props) {
     if (ocorrenciaEditando.imagemBase64) {
       setImagemBase64(ocorrenciaEditando.imagemBase64);
     } else if (ocorrenciaEditando.id && ocorrenciaEditando.temImagem !== false) {
-      fonteImagem(ocorrenciaEditando.id, true).then(setImagemExistente).catch(() => {});
+      fonteImagem(ocorrenciaEditando.id, true)
+        .then(setImagemExistente)
+        .catch(() => {});
     }
   }, [ocorrenciaEditando]);
 
@@ -121,19 +143,19 @@ export default function NewReportScreen({ navigation, route }: Props) {
     const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permissao.granted) {
-      Alert.alert('Permissão necessária', 'Permita o acesso à galeria.');
+      Alert.alert('Permissão necessária', 'Permita o acesso à galeria para anexar uma foto.');
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
+    const resultado = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       base64: true,
       quality: 0.35,
       allowsEditing: true,
     });
 
-    if (!result.canceled && result.assets?.[0]?.base64) {
-      setImagemBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    if (!resultado.canceled && resultado.assets?.[0]?.base64) {
+      setImagemBase64(`data:image/jpeg;base64,${resultado.assets[0].base64}`);
       setImagemExistente(null);
     }
   }
@@ -142,18 +164,18 @@ export default function NewReportScreen({ navigation, route }: Props) {
     const permissao = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permissao.granted) {
-      Alert.alert('Permissão necessária', 'Permita o acesso à câmera.');
+      Alert.alert('Permissão necessária', 'Permita o acesso à câmera para tirar a foto.');
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
+    const resultado = await ImagePicker.launchCameraAsync({
       base64: true,
       quality: 0.35,
       allowsEditing: true,
     });
 
-    if (!result.canceled && result.assets?.[0]?.base64) {
-      setImagemBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    if (!resultado.canceled && resultado.assets?.[0]?.base64) {
+      setImagemBase64(`data:image/jpeg;base64,${resultado.assets[0].base64}`);
       setImagemExistente(null);
     }
   }
@@ -163,19 +185,19 @@ export default function NewReportScreen({ navigation, route }: Props) {
     setImagemExistente(null);
   }
 
-  async function handleEnviar() {
-    if (categoriaSelecionada === null) {
-      Alert.alert('Categoria obrigatória', 'Selecione uma categoria.');
+  async function enviar() {
+    if (!categoria) {
+      Alert.alert('Categoria obrigatória', 'Selecione a categoria da ocorrência.');
       return;
     }
 
-    if (!descricao.trim() || descricao.trim().length < 5) {
+    if (descricao.trim().length < 5) {
       Alert.alert('Descrição obrigatória', 'Descreva a ocorrência com pelo menos 5 caracteres.');
       return;
     }
 
-    if (!endereco.trim()) {
-      Alert.alert('Endereço obrigatório', 'Informe o endereço da ocorrência.');
+    if (!rua.trim()) {
+      Alert.alert('Endereço obrigatório', 'Informe a rua ou avenida da ocorrência.');
       return;
     }
 
@@ -184,17 +206,15 @@ export default function NewReportScreen({ navigation, route }: Props) {
       return;
     }
 
-    const urgenciaSelecionada = urgencias.find((u) => u.label === urgencia);
-
     const payload = {
-      categoria: categorias[categoriaSelecionada].api as CategoriaOcorrencia,
+      categoria,
       descricao: descricao.trim(),
-      rua: endereco.trim(),
+      rua: rua.trim(),
       bairro: bairro.trim() || undefined,
       referencia: referencia.trim() || undefined,
       latitude: coordenadas?.latitude,
       longitude: coordenadas?.longitude,
-      urgencia: (urgenciaSelecionada?.api || 'BAIXA') as UrgenciaOcorrencia,
+      urgencia,
       imagemBase64: imagemBase64 || undefined,
     };
 
@@ -202,292 +222,369 @@ export default function NewReportScreen({ navigation, route }: Props) {
       setSalvando(true);
 
       if (ocorrenciaEditando?.id) {
-        await atualizarOcorrencia(ocorrenciaEditando.id, payload);
+        const atualizada = await atualizarOcorrencia(ocorrenciaEditando.id, payload);
+        Alert.alert('Tudo certo', 'Ocorrência atualizada com sucesso.');
+        navigation?.replace?.('ReportDetail', { item: atualizada || ocorrenciaEditando });
       } else {
-        await criarOcorrencia(payload);
+        const criada = await criarOcorrencia(payload);
+        navigation?.replace?.('ReportSuccess', { ocorrencia: criada });
       }
-
-      Alert.alert(
-        'Tudo certo',
-        ocorrenciaEditando ? 'Ocorrência atualizada.' : 'Ocorrência registrada com sucesso.',
-      );
-
-      navigation?.navigate('Home');
-    } catch (error: any) {
-      Alert.alert('Erro', error?.message || 'Não foi possível salvar a ocorrência.');
+    } catch (erro: any) {
+      Alert.alert('Erro', erro?.message || 'Não foi possível salvar a ocorrência.');
     } finally {
       setSalvando(false);
     }
   }
 
   const preview = imagemBase64 ? { uri: imagemBase64 } : imagemExistente;
+  const editando = !!ocorrenciaEditando;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.headerBack}>
-          <Text style={styles.headerBackText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {ocorrenciaEditando ? 'Editar ocorrência' : 'Nova ocorrência'}
-        </Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <Header
+        variante="tela"
+        titulo={editando ? 'Editar ocorrência' : 'Nova ocorrência'}
+        subtitulo={editando ? 'Atualize os dados do registro' : 'Conte o que está acontecendo na cidade'}
+        onVoltar={() => navigation?.goBack?.()}
+      />
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text style={styles.sectionLabel}>Categoria:</Text>
-
-        <View style={styles.categoriasGrid}>
-          {categorias.map((cat, index) => (
-            <TouchableOpacity
-              key={cat.api}
-              style={[styles.catCard, categoriaSelecionada === index && styles.catCardActive]}
-              onPress={() => setCategoriaSelecionada(index)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.catIcon}>{cat.icon}</Text>
-              <Text style={styles.catLabel}>{cat.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={styles.sectionLabel}>Descrição:</Text>
-        <TextInput
-          style={styles.textArea}
-          placeholder="Descreva o problema..."
-          placeholderTextColor="#94a3b8"
-          value={descricao}
-          onChangeText={setDescricao}
-          multiline
-          textAlignVertical="top"
-          maxLength={2000}
-        />
-
-        <Text style={styles.sectionLabel}>Endereço:</Text>
-        <View style={styles.inputWrapper}>
-          <Text style={styles.inputIcon}>📍</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Rua / avenida"
-            placeholderTextColor="#e2e8f0"
-            value={endereco}
-            onChangeText={setEndereco}
-          />
-        </View>
-
-        <View style={styles.inputWrapper}>
-          <Text style={styles.inputIcon}>🏘️</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Bairro (opcional)"
-            placeholderTextColor="#e2e8f0"
-            value={bairro}
-            onChangeText={setBairro}
-          />
-        </View>
-
-        <View style={styles.inputWrapper}>
-          <Text style={styles.inputIcon}>📌</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ponto de referência (opcional)"
-            placeholderTextColor="#e2e8f0"
-            value={referencia}
-            onChangeText={setReferencia}
-          />
-        </View>
-
-        <TouchableOpacity
-          style={styles.gpsRow}
-          onPress={() => capturarLocalizacao(false)}
-          activeOpacity={0.8}
-          disabled={buscandoGps}
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.gpsIcon}>🛰️</Text>
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.gpsTitle}>
-              {buscandoGps
-                ? 'Buscando sua localização...'
-                : coordenadas
-                  ? 'Localização anexada'
-                  : 'Anexar minha localização'}
+          <View style={styles.secao}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotuloSecao}>
+              Categoria
             </Text>
-            <Text style={styles.gpsSub}>
-              {coordenadas
-                ? `${coordenadas.latitude.toFixed(5)}, ${coordenadas.longitude.toFixed(5)}`
-                : 'Toque para capturar as coordenadas por GPS'}
+
+            <View style={styles.grid}>
+              {CATEGORIAS.map((item) => {
+                const ativo = categoria === item.api;
+
+                return (
+                  <Pressable
+                    key={item.api}
+                    onPress={() => setCategoria(item.api)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Categoria ${item.rotulo}`}
+                    accessibilityState={{ selected: ativo }}
+                    style={({ pressed }) => [
+                      styles.categoria,
+                      ativo ? styles.categoriaAtiva : styles.categoriaInativa,
+                      pressed && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Ionicons
+                      name={item.icone}
+                      size={layout.icone['4']}
+                      color={ativo ? cores.texto.inverso : cores.marca.azul}
+                    />
+                    <Text
+                      maxFontSizeMultiplier={FONTE_MAXIMA}
+                      numberOfLines={2}
+                      style={[styles.categoriaTexto, ativo && styles.categoriaTextoAtivo]}
+                    >
+                      {item.rotulo}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <Campo
+            rotulo="Descrição"
+            valor={descricao}
+            aoMudar={setDescricao}
+            placeholder="Ex.: poste apagado há três dias na esquina da padaria"
+            multilinha
+            maxLength={2000}
+            ajuda={`${descricao.length}/2000 caracteres`}
+            acessibilidadeLabel="Descrição da ocorrência"
+          />
+
+          <View style={styles.secao}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotuloSecao}>
+              Onde aconteceu
             </Text>
+
+            <View style={styles.campos}>
+              <Campo
+                rotulo="Rua ou avenida"
+                valor={rua}
+                aoMudar={setRua}
+                placeholder="Ex.: Rua Maurício de Nassau"
+                icone={ICONE.localizacao}
+                acessibilidadeLabel="Rua da ocorrência"
+              />
+
+              <Campo
+                rotulo="Bairro"
+                valor={bairro}
+                aoMudar={setBairro}
+                placeholder="Opcional"
+                acessibilidadeLabel="Bairro da ocorrência"
+              />
+
+              <Campo
+                rotulo="Ponto de referência"
+                valor={referencia}
+                aoMudar={setReferencia}
+                placeholder="Opcional. Ex.: em frente à praça"
+                icone={ICONE.referencia}
+                acessibilidadeLabel="Ponto de referência"
+              />
+            </View>
           </View>
 
-          {buscandoGps ? (
-            <ActivityIndicator color="#1565c0" />
-          ) : (
-            <Text style={styles.gpsAction}>{coordenadas ? 'Atualizar' : 'Capturar'}</Text>
-          )}
-        </TouchableOpacity>
+          <Pressable
+            onPress={() => capturarLocalizacao(false)}
+            disabled={buscandoGps}
+            accessibilityRole="button"
+            accessibilityLabel="Anexar localização por GPS"
+            style={({ pressed }) => [styles.gps, pressed && { opacity: 0.85 }]}
+          >
+            <View style={styles.gpsIcone}>
+              <Ionicons name={ICONE.localizacao} size={layout.icone['3']} color={cores.marca.azul} />
+            </View>
 
-        <Text style={styles.sectionLabel}>Foto:</Text>
-        <View style={styles.fotosWrapper}>
-          <Text style={styles.fotosPlaceholder}>
-            {preview ? '✅ Imagem adicionada' : 'Adicionar foto da ocorrência'}
-          </Text>
+            <View style={styles.gpsTexto}>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.gpsTitulo}>
+                {buscandoGps
+                  ? 'Buscando sua localização...'
+                  : coordenadas
+                    ? 'Localização anexada'
+                    : 'Anexar minha localização'}
+              </Text>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.gpsAjuda}>
+                {coordenadas
+                  ? `${coordenadas.latitude.toFixed(5)}, ${coordenadas.longitude.toFixed(5)}`
+                  : 'Ajuda a equipe a encontrar o problema'}
+              </Text>
+            </View>
 
-          <View style={styles.fotosIcons}>
-            <TouchableOpacity style={styles.fotoIcon} onPress={tirarFoto} activeOpacity={0.7}>
-              <Text style={styles.fotoIconText}>📸</Text>
-            </TouchableOpacity>
+            {buscandoGps ? (
+              <Ionicons name={ICONE.atualizar} size={layout.icone['2']} color={cores.texto.secundario} />
+            ) : (
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.gpsAcao}>
+                {coordenadas ? 'Atualizar' : 'Capturar'}
+              </Text>
+            )}
+          </Pressable>
 
-            <TouchableOpacity style={styles.fotoIcon} onPress={escolherGaleria} activeOpacity={0.7}>
-              <Text style={styles.fotoIconText}>🖼️</Text>
-            </TouchableOpacity>
+          <View style={styles.secao}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotuloSecao}>
+              Foto
+            </Text>
+
+            {preview ? (
+              <View style={styles.previewBox}>
+                <Image
+                  source={preview}
+                  style={styles.preview}
+                  onError={() => setImagemExistente(null)}
+                  accessibilityLabel="Foto anexada à ocorrência"
+                />
+
+                <Pressable
+                  onPress={removerFoto}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remover foto"
+                  style={({ pressed }) => [styles.remover, pressed && { opacity: 0.7 }]}
+                >
+                  <Ionicons name={ICONE.excluir} size={layout.icone['2']} color={cores.estado.erroTexto} />
+                  <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.removerTexto}>
+                    Remover foto
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.fotoBotoes}>
+                <Botao
+                  titulo="Tirar foto"
+                  icone={ICONE.camera}
+                  variante="secundario"
+                  onPress={tirarFoto}
+                  larguraTotal={false}
+                  estilo={styles.fotoBotao}
+                />
+                <Botao
+                  titulo="Galeria"
+                  icone="images-outline"
+                  variante="secundario"
+                  onPress={escolherGaleria}
+                  larguraTotal={false}
+                  estilo={styles.fotoBotao}
+                />
+              </View>
+            )}
           </View>
-        </View>
 
-        {preview && (
-          <View style={styles.previewBox}>
-            <Image source={preview} style={styles.previewImage} />
+          <View style={styles.secao}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotuloSecao}>
+              Grau de urgência
+            </Text>
 
-            <TouchableOpacity style={styles.removeImage} onPress={removerFoto}>
-              <Text style={styles.removeImageText}>Remover foto</Text>
-            </TouchableOpacity>
+            <View style={styles.urgencias}>
+              {URGENCIAS.map((item) => {
+                const ativo = urgencia === item.api;
+
+                return (
+                  <Pressable
+                    key={item.api}
+                    onPress={() => setUrgencia(item.api)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Urgência ${item.rotulo}`}
+                    accessibilityState={{ selected: ativo }}
+                    style={({ pressed }) => [
+                      styles.urgencia,
+                      { borderColor: item.cor },
+                      ativo && { backgroundColor: item.cor },
+                      pressed && { opacity: 0.85 },
+                    ]}
+                  >
+                    <Ionicons
+                      name={item.icone}
+                      size={layout.icone['3']}
+                      color={ativo ? cores.texto.inverso : item.cor}
+                    />
+                    <Text
+                      maxFontSizeMultiplier={FONTE_MAXIMA}
+                      style={[styles.urgenciaTexto, { color: ativo ? cores.texto.inverso : item.cor }]}
+                    >
+                      {item.rotulo}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-        )}
 
-        <Text style={styles.sectionLabel}>Grau de urgência:</Text>
-
-        <View style={styles.urgenciaRow}>
-          {urgencias.map((u) => (
-            <TouchableOpacity
-              key={u.api}
-              style={[
-                styles.urgBtn,
-                { backgroundColor: urgencia === u.label ? u.active : u.color },
-              ]}
-              onPress={() => setUrgencia(u.label)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.urgBtnText}>{u.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.sendButton, salvando && { opacity: 0.6 }]}
-          onPress={handleEnviar}
-          disabled={salvando}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.sendText}>
-            {salvando ? 'Salvando...' : ocorrenciaEditando ? 'Salvar alteração' : 'Enviar ocorrência'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <Botao
+            titulo={
+              salvando
+                ? 'Salvando...'
+                : editando
+                  ? 'Salvar alteração'
+                  : 'Enviar ocorrência'
+            }
+            icone={editando ? ICONE.editar : ICONE.enviar}
+            onPress={enviar}
+            carregando={salvando}
+            estilo={styles.enviar}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#7ec8e3' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 14,
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  flex: { flex: 1 },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['8'],
+    gap: espaco['5'],
   },
-  headerBack: { width: 26 },
-  headerBackText: { fontSize: 24, color: '#1a1a2e' },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a2e' },
-  scroll: { paddingHorizontal: 16, paddingBottom: 32 },
-  sectionLabel: { fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 10, marginTop: 4 },
-  categoriasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  catCard: {
-    width: '30%',
-    backgroundColor: '#5bb8d4',
-    borderRadius: 14,
-    padding: 12,
+  secao: { gap: espaco['2'] },
+  rotuloSecao: { ...tipografia.rotulo, color: cores.texto.principal },
+
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: espaco['2'],
+  },
+  categoria: {
+    flexBasis: '31%',
+    flexGrow: 1,
+    minHeight: 92,
+    borderRadius: raio['2'],
     alignItems: 'center',
-    gap: 6,
-    minHeight: 80,
     justifyContent: 'center',
-  },
-  catCardActive: { backgroundColor: '#1565c0' },
-  catIcon: { fontSize: 26 },
-  catLabel: { fontSize: 12, fontWeight: '600', color: '#fff', textAlign: 'center', lineHeight: 16 },
-  textArea: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    height: 100,
-    fontSize: 14,
-    color: '#1a1a2e',
-    marginBottom: 16,
+    gap: espaco['1'],
+    paddingHorizontal: espaco['2'],
+    paddingVertical: espaco['3'],
     borderWidth: 1,
-    borderColor: '#e2e8f0',
   },
-  inputWrapper: {
+  categoriaInativa: {
+    backgroundColor: cores.superficie.suave,
+    borderColor: cores.borda.suave,
+  },
+  categoriaAtiva: {
+    backgroundColor: cores.marca.azul,
+    borderColor: cores.marca.azul,
+  },
+  categoriaTexto: {
+    ...tipografia.legenda,
+    color: cores.texto.principal,
+    textAlign: 'center',
+  },
+  categoriaTextoAtivo: { color: cores.texto.inverso },
+
+  campos: { gap: espaco['3'] },
+
+  gps: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#5bb8d4',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 50,
-    marginBottom: 12,
-    gap: 8,
+    gap: espaco['3'],
+    backgroundColor: cores.superficie.azul,
+    borderRadius: raio['2'],
+    padding: espaco['3'],
   },
-  inputIcon: { fontSize: 18 },
-  input: { flex: 1, fontSize: 14, color: '#fff' },
-  gpsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#c7dff0',
-  },
-  gpsIcon: { fontSize: 20 },
-  gpsTitle: { fontSize: 13.5, fontWeight: '700', color: '#1a1a2e' },
-  gpsSub: { fontSize: 11.5, color: '#64748b', marginTop: 1 },
-  gpsAction: { fontSize: 12, fontWeight: '700', color: '#1565c0' },
-  fotosWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#5bb8d4',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 54,
-    marginBottom: 12,
-    justifyContent: 'space-between',
-  },
-  fotosPlaceholder: { fontSize: 13, color: '#fff', fontWeight: '500', flex: 1 },
-  fotosIcons: { flexDirection: 'row', gap: 8 },
-  fotoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+  gpsIcone: {
+    width: 48,
+    height: 48,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.base,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fotoIconText: { fontSize: 18 },
-  previewBox: { backgroundColor: '#fff', borderRadius: 14, padding: 10, marginBottom: 16 },
-  previewImage: { width: '100%', height: 180, borderRadius: 10 },
-  removeImage: { paddingVertical: 10, alignItems: 'center' },
-  removeImageText: { color: '#ef4444', fontWeight: '700' },
-  urgenciaRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
-  urgBtn: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  urgBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  sendButton: { backgroundColor: '#fff', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  sendText: { fontSize: 16, fontWeight: '600', color: '#1a1a2e' },
+  gpsTexto: { flex: 1, gap: 2 },
+  gpsTitulo: { ...tipografia.corpoForte, color: cores.texto.principal },
+  gpsAjuda: { ...tipografia.legendaNormal, color: cores.texto.secundario },
+  gpsAcao: { ...tipografia.rotulo, color: cores.marca.azul },
+
+  fotoBotoes: { flexDirection: 'row', gap: espaco['2'] },
+  fotoBotao: { flex: 1 },
+  previewBox: {
+    backgroundColor: cores.superficie.suave,
+    borderRadius: raio['2'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    padding: espaco['2'],
+    gap: espaco['2'],
+  },
+  preview: { width: '100%', height: 180, borderRadius: raio['1'] },
+  remover: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espaco['1'],
+  },
+  removerTexto: { ...tipografia.rotulo, color: cores.estado.erroTexto },
+
+  urgencias: { flexDirection: 'row', gap: espaco['2'] },
+  urgencia: {
+    flex: 1,
+    minHeight: 64,
+    borderRadius: raio['2'],
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espaco['1'],
+    backgroundColor: cores.superficie.base,
+  },
+  urgenciaTexto: { ...tipografia.rotulo },
+
+  enviar: { marginTop: espaco['1'] },
 });

@@ -1,6 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image } from 'react-native';
+import { Image, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import Botao from '../components/Botao';
+import { FONTE_MAXIMA, cores, espaco, raio, tipografia } from '../theme/tokens';
 
 type Props = {
   navigation: any;
@@ -17,44 +20,76 @@ export default function WelcomeScreen({ navigation }: Props) {
             source={require('../../assets/logo.png')}
             style={styles.logoImage}
             resizeMode="contain"
+            accessibilityLabel="Logo do Observa Cidade"
           />
         </View>
 
         <View style={styles.appNameRow}>
-          <Text style={styles.appNameBlue}>Observa</Text>
-          <Text style={styles.appNameGold}>Cidade</Text>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.appNameBlue}>
+            Observa
+          </Text>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.appNameGold}>
+            Cidade
+          </Text>
         </View>
 
-        <Text style={styles.slogan}>
+        <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.slogan}>
           Sua cidade melhor{'\n'}começa com você.
         </Text>
       </View>
 
       <View style={styles.buttonsArea}>
-        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Login')} activeOpacity={0.85}>
-          <Text style={styles.buttonText}>Entrar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Cadastro')} activeOpacity={0.85}>
-          <Text style={styles.buttonText}>Começar</Text>
-        </TouchableOpacity>
+        <Botao
+          titulo="Começar"
+          onPress={() => navigation.navigate('Cadastro')}
+          acessibilidadeLabel="Começar: criar uma conta"
+        />
+        <Botao
+          titulo="Entrar"
+          variante="destaque"
+          onPress={() => navigation.navigate('Login')}
+          acessibilidadeLabel="Entrar na minha conta"
+        />
       </View>
-
-      <View style={styles.homeIndicator} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:     { flex: 1, backgroundColor: '#7ec8e3', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 20 },
-  content:       { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 16 },
-  logoWrapper:   { marginBottom: 12 },
-  logoImage:     { width: 170, height: 170 },
-  appNameRow:    { flexDirection: 'row', alignItems: 'baseline', marginBottom: 24 },
-  appNameBlue:   { fontSize: 38, fontWeight: '700', color: '#1565c0', letterSpacing: -0.5 },
-  appNameGold:   { fontSize: 38, fontWeight: '700', color: '#c8860a', letterSpacing: -0.5 },
-  slogan:        { fontSize: 18, fontWeight: '600', color: '#1a1a2e', textAlign: 'center', lineHeight: 26 },
-  buttonsArea:   { width: '100%', paddingHorizontal: 32, gap: 14, marginBottom: 8 },
-  button:        { backgroundColor: '#f5f0dc', borderRadius: 18, paddingVertical: 16, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 3 },
-  buttonText:    { fontSize: 17, fontWeight: '600', color: '#1a1a2e', letterSpacing: 0.2 },
-  homeIndicator: { width: 120, height: 5, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.2)', marginBottom: 4 },
+  container: {
+    flex: 1,
+    backgroundColor: cores.marca.agua,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: espaco['6'],
+    paddingVertical: espaco['5'],
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espaco['4'],
+  },
+  logoWrapper: {
+    width: 168,
+    height: 168,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: espaco['3'],
+  },
+  logoImage: { width: 136, height: 136 },
+  appNameRow: { flexDirection: 'row', alignItems: 'baseline' },
+  appNameBlue: { ...tipografia.display, color: cores.marca.azul },
+  appNameGold: { ...tipografia.display, color: cores.marca.dourado },
+  slogan: {
+    ...tipografia.subtitulo,
+    color: cores.texto.sobreAgua,
+    textAlign: 'center',
+  },
+  buttonsArea: {
+    width: '100%',
+    gap: espaco['3'],
+  },
 });

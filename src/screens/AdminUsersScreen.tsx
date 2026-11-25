@@ -1,8 +1,38 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, TextInput, Alert } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { listarUsuarios, deletarUsuario, tornarAdmin, UsuarioAdmin } from '../services/adminService';
+import BarraInferior from '../components/BarraInferior';
+import BotaoIcone from '../components/BotaoIcone';
+import Campo from '../components/Campo';
+import Header from '../components/Header';
+import { Carregando, ErroLista, Vazio } from '../components/Estados';
+import { SeloPapel } from '../components/Selos';
+import {
+  FONTE_MAXIMA,
+  cores,
+  elevacao,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE } from '../theme/icones';
+import {
+  listarUsuarios,
+  deletarUsuario,
+  tornarAdmin,
+  UsuarioAdmin,
+} from '../services/adminService';
 
 type Props = { navigation?: any };
 
@@ -10,6 +40,7 @@ export default function AdminUsersScreen({ navigation }: Props) {
   const [busca, setBusca] = useState('');
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState(false);
 
   useEffect(() => {
     carregar();
@@ -21,11 +52,13 @@ export default function AdminUsersScreen({ navigation }: Props) {
   async function carregar() {
     try {
       setCarregando(true);
+      setErro(false);
       const data = await listarUsuarios();
       setUsuarios(data || []);
     } catch (e) {
       console.log('Erro ao carregar usuários:', e);
       setUsuarios([]);
+      setErro(true);
     } finally {
       setCarregando(false);
     }
@@ -42,7 +75,10 @@ export default function AdminUsersScreen({ navigation }: Props) {
             await deletarUsuario(usuario.id);
             carregar();
           } catch {
-            Alert.alert('Erro', 'Não foi possível excluir o usuário. Ele pode possuir ocorrências vinculadas.');
+            Alert.alert(
+              'Erro',
+              'Não foi possível excluir o usuário. Ele pode possuir ocorrências vinculadas.',
+            );
           }
         },
       },
@@ -61,158 +97,265 @@ export default function AdminUsersScreen({ navigation }: Props) {
   const usuariosFiltrados = usuarios.filter(
     (u) =>
       (u.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
-      (u.email || '').toLowerCase().includes(busca.toLowerCase())
+      (u.email || '').toLowerCase().includes(busca.toLowerCase()),
   );
 
-  const admins = usuarios.filter(u => u.role === 'ADMIN').length;
-  const comuns = usuarios.filter(u => u.role !== 'ADMIN').length;
+  const admins = usuarios.filter((u) => u.role === 'ADMIN').length;
+  const comuns = usuarios.filter((u) => u.role !== 'ADMIN').length;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.appNameBlue}>Observa</Text>
-          <Text style={styles.appNameGold}>Cidade</Text>
-          <View style={styles.admBadge}><Text style={styles.admBadgeText}>ADM</Text></View>
-        </View>
-      </View>
+      <Header
+        adm
+        acoes={
+          <>
+            <BotaoIcone
+              icone={ICONE.adicionar}
+              rotulo="Adicionar usuário"
+              onPress={() => navigation?.navigate?.('AddUserStep1')}
+              variante="azul"
+            />
+            <BotaoIcone icone={ICONE.atualizar} rotulo="Atualizar lista" onPress={carregar} />
+          </>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.usersCard}>
-          <View style={styles.usersCardHeader}>
-            <Text style={styles.usersCardTitle}>Usuários</Text>
-            <TouchableOpacity style={styles.addBtn} onPress={carregar}>
-              <Text style={styles.addBtnText}>↻ Atualizar</Text>
-            </TouchableOpacity>
+        <View style={styles.tituloBloco}>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.titulo}>
+            Usuários
+          </Text>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.descricao}>
+            Gerencie as contas e as permissões de acesso.
+          </Text>
+        </View>
+
+        <View style={styles.resumo}>
+          <View style={styles.resumoItem}>
+            <Ionicons name={ICONE.usuarios} size={layout.icone['2']} color={cores.marca.azul} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoValor}>
+              {usuarios.length}
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoRotulo}>
+              Total
+            </Text>
           </View>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statEmoji}>👥</Text>
-              <Text style={styles.statValor}>{usuarios.length}</Text>
-              <Text style={styles.statLabel}>Total</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statEmoji}>🛡️</Text>
-              <Text style={styles.statValor}>{admins}</Text>
-              <Text style={styles.statLabel}>Admins</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statEmoji}>👤</Text>
-              <Text style={styles.statValor}>{comuns}</Text>
-              <Text style={styles.statLabel}>Usuários</Text>
-            </View>
+          <View style={styles.resumoDivisor} />
+
+          <View style={styles.resumoItem}>
+            <Ionicons name={ICONE.escudo} size={layout.icone['2']} color={cores.marca.azulEscuro} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoValor}>
+              {admins}
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoRotulo}>
+              Admins
+            </Text>
+          </View>
+
+          <View style={styles.resumoDivisor} />
+
+          <View style={styles.resumoItem}>
+            <Ionicons name={ICONE.perfil} size={layout.icone['2']} color={cores.texto.secundario} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoValor}>
+              {comuns}
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoRotulo}>
+              Cidadãos
+            </Text>
           </View>
         </View>
 
-        <View style={styles.searchWrapper}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar usuário..."
-            placeholderTextColor="#94a3b8"
-            value={busca}
-            onChangeText={setBusca}
+        <Campo
+          valor={busca}
+          aoMudar={setBusca}
+          placeholder="Buscar por nome ou e-mail"
+          icone={ICONE.busca}
+          capitalizacao="none"
+          acessibilidadeLabel="Buscar usuário por nome ou e-mail"
+        />
+
+        {carregando ? (
+          <Carregando texto="Carregando usuários..." />
+        ) : erro ? (
+          <ErroLista
+            descricao="Não conseguimos buscar a lista de usuários."
+            aoTentarDeNovo={carregar}
           />
-        </View>
+        ) : usuariosFiltrados.length === 0 ? (
+          <Vazio
+            titulo="Nenhum usuário encontrado"
+            descricao={busca ? 'Tente outro nome ou e-mail.' : 'Ainda não há usuários cadastrados.'}
+            icone={ICONE.usuarios}
+          />
+        ) : (
+          <View style={styles.lista}>
+            {usuariosFiltrados.map((usuario, index) => {
+              const admin = usuario.role === 'ADMIN';
 
-        <View style={styles.listaCard}>
-          {carregando && <Text style={styles.empty}>Carregando usuários...</Text>}
-          {!carregando && usuariosFiltrados.length === 0 && <Text style={styles.empty}>Nenhum usuário encontrado.</Text>}
+              return (
+                <View
+                  key={usuario.id}
+                  style={[styles.linha, index < usuariosFiltrados.length - 1 && styles.linhaBorda]}
+                >
+                  <View style={[styles.avatar, admin ? styles.avatarAdmin : styles.avatarCidadao]}>
+                    <Text
+                      maxFontSizeMultiplier={FONTE_MAXIMA}
+                      style={[styles.avatarTexto, admin ? styles.avatarTextoAdmin : styles.avatarTextoCidadao]}
+                    >
+                      {(usuario.nome || 'U').substring(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
 
-          {usuariosFiltrados.map((usuario, index) => (
-            <TouchableOpacity
-              key={usuario.id}
-              style={[styles.usuarioRow, index < usuariosFiltrados.length - 1 && styles.usuarioRowBorder]}
-              activeOpacity={0.7}
-              onLongPress={() => confirmarExcluir(usuario)}
-            >
-              <View style={[styles.avatar, { backgroundColor: usuario.role === 'ADMIN' ? '#1565c0' : '#5bb8d4' }]}>
-                <Text style={styles.avatarText}>{(usuario.nome || 'U').substring(0, 2).toUpperCase()}</Text>
-              </View>
+                  <View style={styles.info}>
+                    <Text
+                      maxFontSizeMultiplier={FONTE_MAXIMA}
+                      numberOfLines={1}
+                      style={styles.nome}
+                    >
+                      {usuario.nome || 'Usuário'}
+                    </Text>
+                    <Text
+                      maxFontSizeMultiplier={FONTE_MAXIMA}
+                      numberOfLines={1}
+                      style={styles.email}
+                    >
+                      {usuario.email}
+                    </Text>
 
-              <View style={styles.usuarioInfo}>
-                <Text style={styles.usuarioNome}>{usuario.nome || 'Usuário'}</Text>
-                <Text style={styles.usuarioEmail}>{usuario.email}</Text>
-              </View>
+                    <View style={styles.acoesLinha}>
+                      <SeloPapel papel={usuario.role} />
 
-              <View style={styles.usuarioRight}>
-                <View style={[styles.statusBadge, usuario.role === 'ADMIN' && styles.statusAdmin]}>
-                  <Text style={styles.statusText}>{usuario.role}</Text>
+                      {!admin ? (
+                        <Pressable
+                          onPress={() => promover(usuario)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Tornar ${usuario.nome} administrador`}
+                          hitSlop={4}
+                          style={({ pressed }) => [
+                            styles.promover,
+                            pressed && { opacity: 0.7 },
+                          ]}
+                        >
+                          <Ionicons
+                            name={ICONE.escudo}
+                            size={layout.icone['1']}
+                            color={cores.marca.azul}
+                          />
+                          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.promoverTexto}>
+                            Tornar admin
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  </View>
+
+                  <Pressable
+                    onPress={() => confirmarExcluir(usuario)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Excluir ${usuario.nome}`}
+                    hitSlop={4}
+                    style={({ pressed }) => [styles.excluir, pressed && { opacity: 0.6 }]}
+                  >
+                    <Ionicons
+                      name={ICONE.excluir}
+                      size={layout.icone['2']}
+                      color={cores.estado.erroTexto}
+                    />
+                  </Pressable>
                 </View>
-
-                {usuario.role !== 'ADMIN' && (
-                  <TouchableOpacity style={styles.promoverBtn} onPress={() => promover(usuario)}>
-                    <Text style={styles.promoverText}>Tornar ADM</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('AdminHome')}>
-          <Text style={styles.navIcon}>🏠</Text>
-          <Text style={styles.navLabel}>Início</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem, styles.navItemActive]}>
-          <Text style={styles.navIcon}>👥</Text>
-          <Text style={[styles.navLabel, styles.navLabelActive]}>Usuários</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('AdminProfile')}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
+      <BarraInferior tipo="admin" ativo="usuarios" navigation={navigation} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#7ec8e3' },
-  header: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  appNameBlue: { fontSize: 24, fontWeight: '700', color: '#1565c0' },
-  appNameGold: { fontSize: 24, fontWeight: '700', color: '#c8860a' },
-  admBadge: { backgroundColor: '#5bb8d4', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
-  admBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-  scroll: { paddingHorizontal: 14, paddingBottom: 24, gap: 12 },
-  usersCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16 },
-  usersCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  usersCardTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a2e' },
-  addBtn: { backgroundColor: '#5bb8d4', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  addBtnText: { fontSize: 11, fontWeight: '600', color: '#fff' },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  statItem: { alignItems: 'center', gap: 4 },
-  statEmoji: { fontSize: 28 },
-  statValor: { fontSize: 22, fontWeight: '800', color: '#1a1a2e' },
-  statLabel: { fontSize: 10, color: '#64748b', textAlign: 'center' },
-  searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 25, paddingHorizontal: 16, height: 46, gap: 8 },
-  searchIcon: { fontSize: 18 },
-  searchInput: { flex: 1, fontSize: 14, color: '#1a1a2e' },
-  listaCard: { backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' },
-  empty: { textAlign: 'center', color: '#64748b', padding: 20 },
-  usuarioRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 10 },
-  usuarioRowBorder: { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  avatar: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  usuarioInfo: { flex: 1 },
-  usuarioNome: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  usuarioEmail: { fontSize: 11, color: '#64748b' },
-  usuarioRight: { alignItems: 'flex-end', gap: 4 },
-  statusBadge: { backgroundColor: '#22c55e', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
-  statusAdmin: { backgroundColor: '#1565c0' },
-  statusText: { fontSize: 11, fontWeight: '600', color: '#fff' },
-  promoverBtn: { backgroundColor: '#f1f5f9', borderRadius: 14, paddingHorizontal: 8, paddingVertical: 4 },
-  promoverText: { fontSize: 10, color: '#1565c0', fontWeight: '700' },
-  bottomNav: { flexDirection: 'row', backgroundColor: '#7ec8e3', paddingVertical: 10, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)' },
-  navItem: { alignItems: 'center', gap: 2 },
-  navItemActive: {},
-  navIcon: { fontSize: 20 },
-  navLabel: { fontSize: 10, fontWeight: '500', color: '#1a3a5c' },
-  navLabelActive: { fontWeight: '700', color: '#1a1a2e' },
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['6'],
+    gap: espaco['4'],
+  },
+  tituloBloco: { gap: espaco['1'] },
+  titulo: { ...tipografia.tituloTela, color: cores.texto.principal },
+  descricao: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  resumo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    paddingVertical: espaco['4'],
+    ...elevacao[1],
+  },
+  resumoItem: { flex: 1, alignItems: 'center', gap: 2 },
+  resumoDivisor: { width: 1, height: 48, backgroundColor: cores.borda.suave },
+  resumoValor: { ...tipografia.tituloTela, color: cores.texto.principal },
+  resumoRotulo: { ...tipografia.legenda, color: cores.texto.secundario },
+  lista: {
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    overflow: 'hidden',
+    ...elevacao[1],
+  },
+  linha: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espaco['3'],
+    padding: espaco['3'],
+  },
+  linhaBorda: { borderBottomWidth: 1, borderBottomColor: cores.borda.suave },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: raio.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  avatarAdmin: { backgroundColor: cores.marca.azul },
+  avatarCidadao: { backgroundColor: cores.superficie.azul },
+  avatarTexto: { ...tipografia.rotulo },
+  avatarTextoAdmin: { color: cores.texto.inverso },
+  avatarTextoCidadao: { color: cores.marca.azulEscuro },
+  info: { flex: 1, gap: 2 },
+  nome: { ...tipografia.corpoForte, color: cores.texto.principal },
+  email: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  acoesLinha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: espaco['2'],
+    marginTop: espaco['1'],
+  },
+  promover: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaco['1'],
+    paddingHorizontal: espaco['2'],
+    paddingVertical: espaco['1'],
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.azul,
+  },
+  promoverTexto: { ...tipografia.legenda, color: cores.marca.azulEscuro },
+  excluir: {
+    width: 40,
+    height: 40,
+    borderRadius: raio.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

@@ -1,41 +1,425 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, TextInput, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { enviarSuporte } from '../services/suporteService';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-const assuntos = [
-  { icon:'📄', label:'Dúvidas sobre ocorrência' }, { icon:'⚙️', label:'Problemas no aplicativo' },
-  { icon:'👤', label:'Contas e cadastro' }, { icon:'🔔', label:'Notificações' },
-  { icon:'🔒', label:'Privacidade e segurança' }, { icon:'•••', label:'Outros assuntos' },
+import Botao from '../components/Botao';
+import Campo from '../components/Campo';
+import Header from '../components/Header';
+import {
+  FONTE_MAXIMA,
+  cores,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE, type NomeIcone } from '../theme/icones';
+import {
+  enviarSuporte,
+  listarMeusSuportes,
+  type Suporte,
+} from '../services/suporteService';
+
+type Props = { navigation?: any };
+
+const ASSUNTOS: { rotulo: string; icone: NomeIcone }[] = [
+  { rotulo: 'Dúvidas sobre ocorrência', icone: ICONE.documento },
+  { rotulo: 'Problemas no aplicativo', icone: 'bug-outline' },
+  { rotulo: 'Contas e cadastro', icone: ICONE.perfil },
+  { rotulo: 'Notificações', icone: ICONE.notificacoes },
+  { rotulo: 'Privacidade e segurança', icone: 'lock-closed-outline' },
+  { rotulo: 'Outros assuntos', icone: 'ellipsis-horizontal-circle-outline' },
 ];
 
-export default function HelpSupportScreen({ navigation }: any) {
-  const [mensagem,setMensagem]=useState(''); const [assuntoSelecionado,setAssuntoSelecionado]=useState<number|null>(null); const [enviando,setEnviando]=useState(false);
-  async function enviar(){
-    if(assuntoSelecionado===null){ Alert.alert('Assunto obrigatório','Escolha um assunto antes de enviar.'); return; }
-    if(!mensagem.trim()){ Alert.alert('Mensagem obrigatória','Digite sua mensagem.'); return; }
-    try{ setEnviando(true); await enviarSuporte(assuntos[assuntoSelecionado].label, mensagem.trim()); setMensagem(''); setAssuntoSelecionado(null); Alert.alert('Mensagem enviada','Seu chamado foi enviado para o suporte.'); }
-    catch(e){ console.log(e); Alert.alert('Erro','Não foi possível enviar a mensagem.'); } finally{ setEnviando(false); }
+function visualStatus(status?: string): { fundo: string; texto: string; rotulo: string } {
+  switch (status) {
+    case 'RESPONDIDO':
+      return { ...cores.status.resolvido, rotulo: 'Respondido' };
+    case 'EM_ANDAMENTO':
+      return { ...cores.status.andamento, rotulo: 'Em andamento' };
+    case 'FECHADO':
+      return {
+        fundo: cores.superficie.media,
+        texto: cores.texto.secundario,
+        rotulo: 'Fechado',
+      };
+    default:
+      return { ...cores.status.analise, rotulo: 'Aguardando resposta' };
   }
+}
+
+function dataCurta(valor?: string): string {
+  if (!valor) return '';
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return '';
+  return data.toLocaleDateString('pt-BR');
+}
+
+export default function HelpSupportScreen({ navigation }: Props) {
+  const [assunto, setAssunto] = useState<number | null>(null);
+  const [mensagem, setMensagem] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [chamados, setChamados] = useState<Suporte[]>([]);
+  const [carregandoChamados, setCarregandoChamados] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
+  const [erro, setErro] = useState('');
+
+  useEffect(() => {
+    carregarChamados();
+
+    const unsubscribe = navigation?.addListener?.('focus', () => carregarChamados(false));
+    return unsubscribe;
+  }, [navigation]);
+
+  async function carregarChamados(mostrarLoading = true) {
+    try {
+      if (mostrarLoading) setCarregandoChamados(true);
+      const lista = await listarMeusSuportes();
+      setChamados(lista || []);
+    } catch {
+      setChamados([]);
+    } finally {
+      setCarregandoChamados(false);
+      setAtualizando(false);
+    }
+  }
+
+  async function enviar() {
+    if (assunto === null) {
+      setErro('Escolha um assunto antes de enviar.');
+      return;
+    }
+
+    if (mensagem.trim().length < 10) {
+      setErro('Escreva pelo menos 10 caracteres para o suporte entender o caso.');
+      return;
+    }
+
+    setErro('');
+
+    try {
+      setEnviando(true);
+      await enviarSuporte(ASSUNTOS[assunto].rotulo, mensagem.trim());
+      setMensagem('');
+      setAssunto(null);
+      await carregarChamados(false);
+
+      Alert.alert(
+        'Mensagem enviada',
+        'Recebemos seu chamado. A resposta chega em até 24 horas úteis.',
+      );
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Não foi possível enviar sua mensagem.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   return (
-    <SafeAreaView style={styles.container}><StatusBar barStyle="dark-content" />
-      <View style={styles.header}><TouchableOpacity onPress={()=>navigation?.goBack()}><Text style={styles.backArrow}>←</Text></TouchableOpacity><View style={styles.headerCenter}><Text style={styles.headerTitle}>Falar com suporte</Text><Text style={styles.headerSubtitle}>Estamos aqui para ajudar!</Text></View><View style={{width:32}} /></View>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.welcomeCard}><View style={styles.welcomeText}><Text style={styles.welcomeTitle}>Olá, como{`\n`}podemos ajudar?</Text><Text style={styles.welcomeDesc}>Escolha um dos assuntos{`\n`}abaixo ou envie sua mensagem.</Text></View><View style={styles.agentCircle}><Text style={styles.agentEmoji}>👩‍💻</Text></View></View>
-        <Text style={styles.sectionTitle}>Assuntos rápidos</Text><View style={styles.assuntosGrid}>{assuntos.map((item,index)=>(<TouchableOpacity key={index} style={[styles.assuntoCard,assuntoSelecionado===index&&styles.assuntoCardActive]} onPress={()=>setAssuntoSelecionado(index)}><Text style={styles.assuntoIcon}>{item.icon}</Text><Text style={styles.assuntoLabel}>{item.label}</Text></TouchableOpacity>))}</View>
-        <Text style={styles.sectionTitle}>Envie sua mensagem</Text><View style={styles.inputCard}><TextInput style={styles.textArea} placeholder="Descreva sua dúvida ou problema..." placeholderTextColor="#94a3b8" value={mensagem} onChangeText={setMensagem} multiline maxLength={500} textAlignVertical="top" /><Text style={styles.charCount}>{mensagem.length}/500</Text></View>
-        <TouchableOpacity style={styles.sendButton} onPress={enviar} disabled={enviando}><Text style={styles.sendText}>{enviando?'Enviando...':'Enviar mensagem'}</Text></TouchableOpacity>
-        <View style={styles.atendimentoCard}><Text style={styles.headphoneEmoji}>🎧</Text><View style={styles.atendimentoText}><Text style={styles.atendimentoTitle}>Atendimento</Text><Text style={styles.atendimentoDesc}>Segunda a sexta, das 08h às 18h{`\n`}Resposta em até 24h úteis</Text></View></View>
-      </ScrollView>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      <Header
+        variante="tela"
+        titulo="Ajuda e suporte"
+        subtitulo="Estamos aqui para ajudar"
+        onVoltar={() => navigation?.goBack?.()}
+      />
+
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={atualizando}
+              onRefresh={() => {
+                setAtualizando(true);
+                carregarChamados(false);
+              }}
+              colors={[cores.marca.azul]}
+              tintColor={cores.marca.azul}
+            />
+          }
+        >
+          <View style={styles.intro}>
+            <View style={styles.introIcone}>
+              <Ionicons name={ICONE.ajuda} size={layout.icone['4']} color={cores.marca.azul} />
+            </View>
+            <View style={styles.introTexto}>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.introTitulo}>
+                Como podemos ajudar?
+              </Text>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.introDesc}>
+                Escolha um assunto e descreva o que aconteceu. Respondemos de segunda a sexta,
+                das 8h às 18h.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.secao}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotuloSecao}>
+              1. Escolha o assunto
+            </Text>
+
+            <View style={styles.grid}>
+              {ASSUNTOS.map((item, index) => {
+                const ativo = assunto === index;
+
+                return (
+                  <Pressable
+                    key={item.rotulo}
+                    onPress={() => {
+                      setAssunto(index);
+                      setErro('');
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.rotulo}
+                    accessibilityState={{ selected: ativo }}
+                    style={({ pressed }) => [
+                      styles.assunto,
+                      ativo ? styles.assuntoAtivo : styles.assuntoInativo,
+                      pressed && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Ionicons
+                      name={item.icone}
+                      size={layout.icone['3']}
+                      color={ativo ? cores.texto.inverso : cores.marca.azul}
+                    />
+                    <Text
+                      maxFontSizeMultiplier={FONTE_MAXIMA}
+                      numberOfLines={2}
+                      style={[styles.assuntoTexto, ativo && styles.assuntoTextoAtivo]}
+                    >
+                      {item.rotulo}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.secao}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotuloSecao}>
+              2. Escreva sua mensagem
+            </Text>
+
+            <Campo
+              valor={mensagem}
+              aoMudar={(texto) => {
+                setMensagem(texto);
+                if (erro) setErro('');
+              }}
+              placeholder="Descreva sua dúvida ou problema com o máximo de detalhes."
+              multilinha
+              maxLength={500}
+              ajuda={`${mensagem.length}/500 caracteres`}
+              erro={erro || undefined}
+              acessibilidadeLabel="Mensagem para o suporte"
+            />
+          </View>
+
+          <Botao
+            titulo="Enviar mensagem"
+            icone={ICONE.enviar}
+            onPress={enviar}
+            carregando={enviando}
+          />
+
+          <View style={styles.secao}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotuloSecao}>
+              Seus chamados
+            </Text>
+
+            {carregandoChamados ? (
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.vazio}>
+                Carregando chamados...
+              </Text>
+            ) : chamados.length === 0 ? (
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.vazio}>
+                Você ainda não abriu nenhum chamado.
+              </Text>
+            ) : (
+              <View style={styles.chamados}>
+                {chamados.map((item) => {
+                  const visual = visualStatus(item.status);
+
+                  return (
+                    <View key={item.id} style={styles.chamado}>
+                      <View style={styles.chamadoTopo}>
+                        <Text
+                          maxFontSizeMultiplier={FONTE_MAXIMA}
+                          numberOfLines={1}
+                          style={styles.chamadoAssunto}
+                        >
+                          {item.assunto}
+                        </Text>
+
+                        <View style={[styles.selo, { backgroundColor: visual.fundo }]}>
+                          <Text
+                            maxFontSizeMultiplier={FONTE_MAXIMA}
+                            style={[styles.seloTexto, { color: visual.texto }]}
+                          >
+                            {visual.rotulo}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.chamadoMensagem}>
+                        {item.mensagem}
+                      </Text>
+
+                      {item.resposta ? (
+                        <View style={styles.resposta}>
+                          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.respostaRotulo}>
+                            Resposta do suporte
+                          </Text>
+                          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.respostaTexto}>
+                            {item.resposta}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.chamadoData}>
+                        Aberto em {dataCurta(item.dataCriacao)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.atendimento}>
+            <Ionicons name="headset-outline" size={layout.icone['3']} color={cores.marca.azul} />
+            <View style={styles.atendimentoTexto}>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.atendimentoTitulo}>
+                Atendimento
+              </Text>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.atendimentoDesc}>
+                Segunda a sexta, das 8h às 18h. Resposta em até 24 horas úteis.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-const styles=StyleSheet.create({
-  container:{flex:1,backgroundColor:'#7ec8e3'}, header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:20,paddingTop:16,paddingBottom:14},
-  backArrow:{fontSize:24,color:'#1a1a2e',width:32}, headerCenter:{alignItems:'center',flex:1}, headerTitle:{fontSize:18,fontWeight:'700',color:'#1a1a2e'}, headerSubtitle:{fontSize:12,color:'#1a3a5c',marginTop:2},
-  scroll:{paddingHorizontal:16,paddingBottom:24}, welcomeCard:{backgroundColor:'#fff',borderRadius:16,padding:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:20},
-  welcomeText:{flex:1}, welcomeTitle:{fontSize:18,fontWeight:'800',color:'#1a1a2e',lineHeight:24,marginBottom:6}, welcomeDesc:{fontSize:12,color:'#64748b',lineHeight:18}, agentCircle:{width:70,height:70,borderRadius:35,backgroundColor:'#e0f2fe',alignItems:'center',justifyContent:'center'}, agentEmoji:{fontSize:40},
-  sectionTitle:{fontSize:15,fontWeight:'700',color:'#1a1a2e',marginBottom:12}, assuntosGrid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginBottom:20}, assuntoCard:{width:'30%',backgroundColor:'#5bb8d4',borderRadius:14,padding:10,alignItems:'center',gap:8,minHeight:90,justifyContent:'center'}, assuntoCardActive:{backgroundColor:'#1565c0'}, assuntoIcon:{fontSize:24}, assuntoLabel:{fontSize:10,fontWeight:'600',color:'#fff',textAlign:'center',lineHeight:14},
-  inputCard:{backgroundColor:'#fff',borderRadius:14,padding:14,marginBottom:12}, textArea:{height:100,fontSize:13,color:'#1a1a2e',marginBottom:4}, charCount:{fontSize:11,color:'#94a3b8',textAlign:'right',marginBottom:4}, sendButton:{backgroundColor:'#1565c0',borderRadius:14,paddingVertical:16,alignItems:'center',justifyContent:'center',marginBottom:14}, sendText:{fontSize:16,fontWeight:'700',color:'#fff'},
-  atendimentoCard:{backgroundColor:'#fff',borderRadius:14,padding:14,flexDirection:'row',alignItems:'center',gap:12,marginBottom:8}, headphoneEmoji:{fontSize:28}, atendimentoText:{flex:1}, atendimentoTitle:{fontSize:14,fontWeight:'700',color:'#1a1a2e',marginBottom:4}, atendimentoDesc:{fontSize:12,color:'#64748b',lineHeight:18}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  flex: { flex: 1 },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['8'],
+    gap: espaco['5'],
+  },
+  secao: { gap: espaco['2'] },
+  rotuloSecao: { ...tipografia.rotulo, color: cores.texto.principal },
+
+  intro: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaco['3'],
+    backgroundColor: cores.superficie.azul,
+    borderRadius: raio['3'],
+    padding: espaco['4'],
+  },
+  introIcone: {
+    width: 56,
+    height: 56,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  introTexto: { flex: 1, gap: espaco['1'] },
+  introTitulo: { ...tipografia.subtitulo, color: cores.texto.principal },
+  introDesc: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: espaco['2'] },
+  assunto: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minHeight: 88,
+    borderRadius: raio['2'],
+    borderWidth: 1,
+    padding: espaco['3'],
+    gap: espaco['1'],
+    justifyContent: 'center',
+  },
+  assuntoInativo: {
+    backgroundColor: cores.superficie.suave,
+    borderColor: cores.borda.suave,
+  },
+  assuntoAtivo: { backgroundColor: cores.marca.azul, borderColor: cores.marca.azul },
+  assuntoTexto: { ...tipografia.rotulo, color: cores.texto.principal },
+  assuntoTextoAtivo: { color: cores.texto.inverso },
+
+  vazio: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  chamados: { gap: espaco['3'] },
+  chamado: {
+    backgroundColor: cores.superficie.suave,
+    borderRadius: raio['2'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    padding: espaco['3'],
+    gap: espaco['2'],
+  },
+  chamadoTopo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: espaco['2'],
+  },
+  chamadoAssunto: { ...tipografia.corpoForte, color: cores.texto.principal, flex: 1 },
+  selo: {
+    borderRadius: raio.pill,
+    paddingHorizontal: espaco['2'],
+    paddingVertical: 3,
+    flexShrink: 0,
+  },
+  seloTexto: { ...tipografia.legenda },
+  chamadoMensagem: { ...tipografia.corpoPequeno, color: cores.texto.principal },
+  resposta: {
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['1'],
+    padding: espaco['2'],
+    gap: 2,
+  },
+  respostaRotulo: { ...tipografia.legenda, color: cores.texto.secundario },
+  respostaTexto: { ...tipografia.corpoPequeno, color: cores.texto.principal },
+  chamadoData: { ...tipografia.legendaNormal, color: cores.texto.placeholder },
+
+  atendimento: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espaco['3'],
+    backgroundColor: cores.superficie.suave,
+    borderRadius: raio['2'],
+    padding: espaco['4'],
+  },
+  atendimentoTexto: { flex: 1, gap: 2 },
+  atendimentoTitulo: { ...tipografia.corpoForte, color: cores.texto.principal },
+  atendimentoDesc: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
 });

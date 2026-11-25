@@ -1,190 +1,403 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, TextInput } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
+import BarraInferior from '../components/BarraInferior';
+import Botao from '../components/Botao';
+import Campo from '../components/Campo';
+import Header from '../components/Header';
+import { SeloPapel } from '../components/Selos';
+import {
+  FONTE_MAXIMA,
+  cores,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE } from '../theme/icones';
 import { useUsuarioLogado } from '../hooks/useUsuarioLogado';
-import { atualizarUsuarioLogado } from '../services/authService';
+import { alterarSenha, atualizarUsuarioLogado } from '../services/authService';
 
 type Props = { navigation?: any };
 
 export default function MyDataScreen({ navigation }: Props) {
-  const { usuario } = useUsuarioLogado();
+  const { usuario, carregando, recarregarUsuario } = useUsuarioLogado();
+
   const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
   const [telefone, setTelefone] = useState('');
   const [nascimento, setNascimento] = useState('');
   const [cidade, setCidade] = useState('');
-  const [focused, setFocused] = useState('');
-  
+  const [salvando, setSalvando] = useState(false);
+  const [erroNome, setErroNome] = useState('');
+
+  const [abrirSenha, setAbrirSenha] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [novaSenha, setNovaSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [salvandoSenha, setSalvandoSenha] = useState(false);
+  const [erroSenha, setErroSenha] = useState<{ atual?: string; nova?: string; confirmar?: string }>({});
 
   useEffect(() => {
-    if (usuario) {
-      setNome(usuario.nome || '');
-      setEmail(usuario.email || '');
-      setTelefone(usuario.telefone || '');
-      setNascimento(usuario.nascimento || '');
-      setCidade(usuario.cidade || '');
-    }
+    if (!usuario) return;
+
+    setNome(usuario.nome || '');
+    setTelefone(usuario.telefone || '');
+    setNascimento(usuario.nascimento || '');
+    setCidade(usuario.cidade || '');
   }, [usuario]);
 
-  async function salvarDados() {
+  async function salvar() {
+    if (nome.trim().length < 3) {
+      setErroNome('Informe seu nome completo (mínimo 3 letras).');
+      return;
+    }
+
+    setErroNome('');
+
     try {
-      await atualizarUsuarioLogado({ nome, telefone, nascimento, cidade });
-      alert('Dados salvos com sucesso!');
-    } catch (error) {
-      console.log(error);
-      alert('Erro ao salvar dados.');
+      setSalvando(true);
+
+      await atualizarUsuarioLogado({
+        nome: nome.trim(),
+        telefone: telefone.trim() || undefined,
+        nascimento: nascimento.trim() || undefined,
+        cidade: cidade.trim() || undefined,
+      });
+
+      await recarregarUsuario();
+      Alert.alert('Dados salvos', 'Suas informações foram atualizadas.');
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Não foi possível salvar seus dados.');
+    } finally {
+      setSalvando(false);
     }
   }
 
-  const campos = [
-    { key: 'nome',       label: 'Nome completo',    icon: '👤', value: nome,       set: setNome,       keyboard: 'default' as const },
-    { key: 'email',      label: 'E-mail',            icon: '✉️', value: email,      set: setEmail,      keyboard: 'email-address' as const },
-    { key: 'telefone',   label: 'Telefone',          icon: '📞', value: telefone,   set: setTelefone,   keyboard: 'phone-pad' as const },
-    { key: 'nascimento', label: 'Data de nascimento',icon: '📅', value: nascimento, set: setNascimento, keyboard: 'default' as const },
-    { key: 'cidade',     label: 'Cidade',            icon: '📍', value: cidade,     set: setCidade,     keyboard: 'default' as const },
-  ];
+  async function trocarSenha() {
+    const novos: typeof erroSenha = {};
+
+    if (!senhaAtual) novos.atual = 'Informe a senha atual.';
+    if (novaSenha.length < 6) novos.nova = 'A nova senha precisa ter pelo menos 6 caracteres.';
+    if (confirmarSenha !== novaSenha) novos.confirmar = 'As senhas não coincidem.';
+    if (novaSenha && novaSenha === senhaAtual) {
+      novos.nova = 'Escolha uma senha diferente da atual.';
+    }
+
+    setErroSenha(novos);
+    if (Object.keys(novos).length > 0) return;
+
+    try {
+      setSalvandoSenha(true);
+      await alterarSenha(senhaAtual, novaSenha);
+      setSenhaAtual('');
+      setNovaSenha('');
+      setConfirmarSenha('');
+      setAbrirSenha(false);
+      Alert.alert('Senha alterada', 'Use a nova senha no próximo acesso.');
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Não foi possível alterar a senha.');
+    } finally {
+      setSalvandoSenha(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()} activeOpacity={0.7}>
-          <Text style={styles.backArrow}>←</Text>
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Meus dados</Text>
-          <Text style={styles.headerSubtitle}>Atualize sua informações pessoais{'\n'}e de contato.</Text>
-        </View>
-        <View style={{ width: 24 }} />
-      </View>
+      <Header
+        variante="tela"
+        titulo="Meus dados"
+        subtitulo="Informações pessoais e de contato"
+        onVoltar={() => navigation?.goBack?.()}
+      />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
-        {/* Card perfil */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatarWrapper}>
-            <View style={styles.avatarCircle}>
-              <View style={styles.avatarHead} />
-              <View style={styles.avatarBody} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.perfil}>
+            <View style={styles.avatar}>
+              <Ionicons name={ICONE.perfilAtivo} size={40} color={cores.marca.azul} />
             </View>
-            {/* Botão câmera */}
-            <TouchableOpacity style={styles.cameraBtn} activeOpacity={0.8}>
-              <Text style={styles.cameraEmoji}>📷</Text>
-            </TouchableOpacity>
+
+            <View style={styles.perfilInfo}>
+              <Text
+                maxFontSizeMultiplier={FONTE_MAXIMA}
+                numberOfLines={1}
+                style={styles.perfilNome}
+              >
+                {carregando ? 'Carregando...' : usuario?.nome || 'Usuário'}
+              </Text>
+              <Text
+                maxFontSizeMultiplier={FONTE_MAXIMA}
+                numberOfLines={1}
+                style={styles.perfilEmail}
+              >
+                {usuario?.email || ''}
+              </Text>
+
+              {usuario?.role ? (
+                <View style={styles.papel}>
+                  <SeloPapel papel={usuario.role} />
+                </View>
+              ) : null}
+            </View>
           </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{nome || 'Usuário'}</Text>
-            <View style={styles.profileRow}>
-              <Text style={styles.profileIcon}>✉️</Text>
-              <Text style={styles.profileText}>{email || 'email não informado'}</Text>
-            </View>
-            <View style={styles.profileRow}>
-              <Text style={styles.profileIcon}>📞</Text>
-              <Text style={styles.profileText}>{telefone || 'telefone não informado'}</Text>
-            </View>
+
+          <View style={styles.formulario}>
+            <Campo
+              rotulo="Nome completo"
+              valor={nome}
+              aoMudar={(texto) => {
+                setNome(texto);
+                if (erroNome) setErroNome('');
+              }}
+              placeholder="Como você quer ser chamado"
+              icone={ICONE.perfil}
+              capitalizacao="words"
+              erro={erroNome || undefined}
+              acessibilidadeLabel="Campo de nome completo"
+            />
+
+            <Campo
+              rotulo="E-mail"
+              valor={usuario?.email || ''}
+              aoMudar={() => {}}
+              editavel={false}
+              icone={ICONE.email}
+              ajuda="O e-mail de acesso não pode ser alterado por aqui."
+              acessibilidadeLabel="E-mail da conta"
+            />
+
+            <Campo
+              rotulo="Telefone"
+              valor={telefone}
+              aoMudar={setTelefone}
+              placeholder="(81) 99999-9999"
+              icone={ICONE.telefone}
+              teclado="phone-pad"
+              acessibilidadeLabel="Campo de telefone"
+            />
+
+            <Campo
+              rotulo="Data de nascimento"
+              valor={nascimento}
+              aoMudar={setNascimento}
+              placeholder="dd/mm/aaaa"
+              icone="calendar-outline"
+              teclado="numbers-and-punctuation"
+              acessibilidadeLabel="Data de nascimento"
+            />
+
+            <Campo
+              rotulo="Cidade"
+              valor={cidade}
+              aoMudar={setCidade}
+              placeholder="Onde você mora"
+              icone={ICONE.localizacao}
+              capitalizacao="words"
+              acessibilidadeLabel="Cidade"
+            />
           </View>
-        </View>
 
-        {/* Informações pessoais */}
-        <Text style={styles.sectionTitle}>Informações pessoais</Text>
+          <Botao
+            titulo={salvando ? 'Salvando...' : 'Salvar alterações'}
+            icone="checkmark"
+            onPress={salvar}
+            carregando={salvando}
+          />
 
-        <View style={styles.formCard}>
-          {campos.map((campo, index) => (
-            <View key={campo.key} style={[styles.inputGroup, index < campos.length - 1 && styles.inputGroupBorder]}>
-              <View style={styles.inputLabelRow}>
-                <Text style={styles.inputIcon}>{campo.icon}</Text>
-                <Text style={styles.inputLabel}>{campo.label}</Text>
+          <View style={styles.senhaCard}>
+            <Pressable
+              onPress={() => setAbrirSenha((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel="Alterar senha"
+              accessibilityState={{ expanded: abrirSenha }}
+              style={({ pressed }) => [styles.senhaTopo, pressed && { opacity: 0.75 }]}
+            >
+              <View style={styles.senhaIcone}>
+                <Ionicons name="lock-closed-outline" size={layout.icone['2']} color={cores.marca.azul} />
               </View>
-              <TextInput
-                style={[styles.inputField, focused === campo.key && styles.inputFieldFocused]}
-                value={campo.value}
-                onChangeText={campo.set}
-                keyboardType={campo.keyboard}
-                autoCapitalize={campo.key === 'email' ? 'none' : 'words'}
-                onFocus={() => setFocused(campo.key)}
-                onBlur={() => setFocused('')}
+
+              <View style={styles.senhaTexto}>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.senhaTitulo}>
+                  Alterar senha
+                </Text>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.senhaDesc}>
+                  {abrirSenha ? 'Preencha para trocar' : 'Proteja o acesso à sua conta'}
+                </Text>
+              </View>
+
+              <Ionicons
+                name={abrirSenha ? 'chevron-up' : 'chevron-down'}
+                size={layout.icone['2']}
+                color={cores.texto.secundario}
               />
-            </View>
-          ))}
-        </View>
+            </Pressable>
 
-        {/* Botão salvar */}
-        <TouchableOpacity style={styles.saveButton} onPress={salvarDados} activeOpacity={0.85}>
-          <Text style={styles.saveText}>Salvar alteração</Text>
-        </TouchableOpacity>
+            {abrirSenha ? (
+              <View style={styles.senhaForm}>
+                <Campo
+                  rotulo="Senha atual"
+                  valor={senhaAtual}
+                  aoMudar={(texto) => {
+                    setSenhaAtual(texto);
+                    if (erroSenha.atual) setErroSenha((e) => ({ ...e, atual: undefined }));
+                  }}
+                  placeholder="Sua senha de hoje"
+                  seguro
+                  capitalizacao="none"
+                  erro={erroSenha.atual}
+                  acessibilidadeLabel="Senha atual"
+                />
 
-      </ScrollView>
+                <Campo
+                  rotulo="Nova senha"
+                  valor={novaSenha}
+                  aoMudar={(texto) => {
+                    setNovaSenha(texto);
+                    if (erroSenha.nova) setErroSenha((e) => ({ ...e, nova: undefined }));
+                  }}
+                  placeholder="Mínimo de 6 caracteres"
+                  seguro
+                  capitalizacao="none"
+                  ajuda="Use pelo menos 6 caracteres."
+                  erro={erroSenha.nova}
+                  acessibilidadeLabel="Nova senha"
+                />
 
-      {/* Bottom Nav */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('Home')} activeOpacity={0.7}>
-          <Text style={styles.navIcon}>🏠</Text>
-          <Text style={styles.navLabel}>Inicio</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItemCenter} onPress={() => navigation?.navigate('NewReport')} activeOpacity={0.7}>
-          <Text style={styles.navPlus}>+</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('Profile')} activeOpacity={0.7}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
+                <Campo
+                  rotulo="Confirmar nova senha"
+                  valor={confirmarSenha}
+                  aoMudar={(texto) => {
+                    setConfirmarSenha(texto);
+                    if (erroSenha.confirmar) setErroSenha((e) => ({ ...e, confirmar: undefined }));
+                  }}
+                  placeholder="Repita a nova senha"
+                  seguro
+                  capitalizacao="none"
+                  erro={erroSenha.confirmar}
+                  aoEnviar={trocarSenha}
+                  acessibilidadeLabel="Confirmar nova senha"
+                />
 
+                <Botao
+                  titulo={salvandoSenha ? 'Alterando...' : 'Alterar senha'}
+                  variante="secundario"
+                  onPress={trocarSenha}
+                  carregando={salvandoSenha}
+                />
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.aviso}>
+            <Ionicons name={ICONE.escudo} size={layout.icone['2']} color={cores.texto.secundario} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.avisoTexto}>
+              Seus dados são usados apenas para o atendimento das ocorrências e não são
+              compartilhados com terceiros.
+            </Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <BarraInferior ativo="perfil" navigation={navigation} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:          { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  flex: { flex: 1 },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['8'],
+    gap: espaco['5'],
+  },
 
-  /* Header */
-  header:             { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
-  backArrow:          { fontSize: 22, color: '#1a1a2e', marginRight: 8, marginTop: 2 },
-  headerCenter:       { flex: 1, alignItems: 'center' },
-  headerTitle:        { fontSize: 20, fontWeight: '700', color: '#1a1a2e' },
-  headerSubtitle:     { fontSize: 12, color: '#64748b', textAlign: 'center', lineHeight: 18, marginTop: 4 },
+  perfil: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaco['4'],
+    backgroundColor: cores.superficie.azul,
+    borderRadius: raio['3'],
+    padding: espaco['4'],
+  },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  perfilInfo: { flex: 1, gap: 2 },
+  perfilNome: { ...tipografia.tituloSecao, color: cores.texto.principal },
+  perfilEmail: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  papel: { marginTop: espaco['1'] },
 
-  scroll:             { paddingHorizontal: 16, paddingBottom: 24 },
+  formulario: { gap: espaco['4'] },
 
-  /* Card perfil */
-  profileCard:        { backgroundColor: '#7ec8e3', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 },
-  avatarWrapper:      { position: 'relative' },
-  avatarCircle:       { width: 80, height: 80, borderRadius: 40, backgroundColor: '#e8e0f7', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  avatarHead:         { width: 28, height: 28, borderRadius: 14, backgroundColor: '#7c5cbf', marginBottom: -3 },
-  avatarBody:         { width: 52, height: 30, borderRadius: 26, backgroundColor: '#7c5cbf', marginTop: 3 },
-  cameraBtn:          { position: 'absolute', bottom: 0, right: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#7ec8e3' },
-  cameraEmoji:        { fontSize: 12 },
-  profileInfo:        { flex: 1, gap: 4 },
-  profileName:        { fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 4 },
-  profileRow:         { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  profileIcon:        { fontSize: 14 },
-  profileText:        { fontSize: 13, color: '#1a1a2e' },
+  senhaCard: {
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    overflow: 'hidden',
+  },
+  senhaTopo: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaco['3'],
+    paddingHorizontal: espaco['4'],
+    paddingVertical: espaco['3'],
+  },
+  senhaIcone: {
+    width: 40,
+    height: 40,
+    borderRadius: raio['2'],
+    backgroundColor: cores.superficie.azul,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  senhaTexto: { flex: 1, gap: 2 },
+  senhaTitulo: { ...tipografia.corpoForte, color: cores.texto.principal },
+  senhaDesc: { ...tipografia.legendaNormal, color: cores.texto.secundario },
+  senhaForm: {
+    gap: espaco['4'],
+    paddingHorizontal: espaco['4'],
+    paddingBottom: espaco['4'],
+    paddingTop: espaco['1'],
+    borderTopWidth: 1,
+    borderTopColor: cores.borda.suave,
+  },
 
-  /* Seção */
-  sectionTitle:       { fontSize: 18, fontWeight: '700', color: '#1a1a2e', marginBottom: 12 },
-
-  /* Form */
-  formCard:           { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 24, overflow: 'hidden' },
-  inputGroup:         { paddingHorizontal: 16, paddingVertical: 12 },
-  inputGroupBorder:   { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  inputLabelRow:      { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  inputIcon:          { fontSize: 16 },
-  inputLabel:         { fontSize: 12, color: '#64748b', fontWeight: '500' },
-  inputField:         { fontSize: 15, color: '#1a1a2e', fontWeight: '500', paddingVertical: 2 },
-  inputFieldFocused:  { color: '#1565c0' },
-
-  /* Botão salvar */
-  saveButton:         { backgroundColor: '#5bb8d4', borderRadius: 14, paddingVertical: 18, alignItems: 'center', marginBottom: 8 },
-  saveText:           { fontSize: 17, fontWeight: '700', color: '#fff' },
-
-  /* Bottom Nav */
-  bottomNav:          { flexDirection: 'row', backgroundColor: '#7ec8e3', paddingVertical: 10, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)' },
-  navItem:            { alignItems: 'center', gap: 2 },
-  navItemCenter:      { width: 52, height: 52, borderRadius: 26, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', marginTop: -24, elevation: 4 },
-  navPlus:            { fontSize: 30, color: '#1a1a2e', lineHeight: 34 },
-  navIcon:            { fontSize: 22 },
-  navLabel:           { fontSize: 11, fontWeight: '500', color: '#1a3a5c' },
+  aviso: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espaco['2'],
+    paddingHorizontal: espaco['2'],
+  },
+  avisoTexto: { ...tipografia.legendaNormal, color: cores.texto.secundario, flex: 1 },
 });

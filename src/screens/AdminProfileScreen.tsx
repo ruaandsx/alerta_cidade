@@ -1,11 +1,28 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView } from 'react-native';
+import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
+import BarraInferior from '../components/BarraInferior';
+import Botao from '../components/Botao';
+import Header from '../components/Header';
+import { SeloPapel } from '../components/Selos';
+import {
+  FONTE_MAXIMA,
+  cores,
+  elevacao,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE, type NomeIcone } from '../theme/icones';
 import { useUsuarioLogado } from '../hooks/useUsuarioLogado';
 import { logout } from '../services/authService';
 
 type Props = { navigation?: any };
+
+type LinhaDado = { icone: NomeIcone; rotulo: string; valor: string };
 
 export default function AdminProfileScreen({ navigation }: Props) {
   const { usuario } = useUsuarioLogado();
@@ -18,152 +35,229 @@ export default function AdminProfileScreen({ navigation }: Props) {
     });
   }
 
-  const stats = [
-    { valor: 'ADM', label: 'Tipo de\nconta', icon: '🛡️' },
-    { valor: usuario?.id || '-', label: 'ID do\nusuário', icon: '👤' },
-    { valor: 'Ativo', label: 'Status da\nconta', icon: '✅' },
+  const dados: LinhaDado[] = [
+    { icone: ICONE.perfil, rotulo: 'Nome completo', valor: usuario?.nome || 'Administrador' },
+    { icone: ICONE.cargo, rotulo: 'Cargo', valor: 'Administrador do sistema' },
+    { icone: ICONE.departamento, rotulo: 'Departamento', valor: 'Gestão de ocorrências' },
+    { icone: ICONE.permissoes, rotulo: 'Permissões', valor: 'Acesso administrativo' },
+  ];
+
+  const resumo = [
+    { valor: 'ADM', rotulo: 'Tipo de conta', icone: ICONE.escudo as NomeIcone },
+    { valor: String(usuario?.id || '-'), rotulo: 'ID do usuário', icone: ICONE.perfil as NomeIcone },
+    { valor: 'Ativo', rotulo: 'Status da conta', icone: 'checkmark-circle-outline' as NomeIcone },
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()}>
-          <Text style={styles.backArrow}>←</Text>
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.headerTitle}>Meu perfil</Text>
-          <Text style={styles.headerSubtitle}>Administrador</Text>
-        </View>
-        <View style={{ width: 24 }} />
-      </View>
+      <Header
+        variante="tela"
+        titulo="Meu perfil"
+        subtitulo="Administrador"
+        onVoltar={() => navigation?.goBack?.()}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.profileCard}>
-          <View style={styles.profileTop}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarEmoji}>🛡️</Text>
-            </View>
-
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileNome}>{usuario?.nome || 'Administrador'}</Text>
-              <View style={styles.badgeWrapper}>
-                <Text style={styles.badgeText}>{usuario?.role || 'ADMIN'}</Text>
-              </View>
-              <Text style={styles.profileText}>✉️ {usuario?.email || 'email não informado'}</Text>
-              <Text style={styles.profileText}>📞 {usuario?.telefone || 'telefone não informado'}</Text>
-            </View>
+        <View style={styles.perfilCard}>
+          <View style={styles.avatar}>
+            <Ionicons name={ICONE.escudoAtivo} size={layout.icone['4']} color={cores.marca.azul} />
           </View>
 
-          {[
-            { icon: '👤', label: 'Nome completo', value: usuario?.nome || 'Administrador' },
-            { icon: '💼', label: 'Cargo', value: 'Administrador do sistema' },
-            { icon: '🏢', label: 'Departamento', value: 'Gestão de ocorrências' },
-            { icon: '📍', label: 'Permissões', value: 'Acesso administrativo' },
-          ].map((campo, i) => (
-            <View key={i} style={styles.campoRow}>
-              <Text style={styles.campoIcon}>{campo.icon}</Text>
-              <View style={styles.campoContent}>
-                <Text style={styles.campoLabel}>{campo.label}</Text>
-                <Text style={styles.campoValue}>{campo.value}</Text>
+          <View style={styles.perfilInfo}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.perfilNome}>
+              {usuario?.nome || 'Administrador'}
+            </Text>
+            <SeloPapel papel={usuario?.role || 'ADMIN'} />
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.secaoTitulo}>
+            Contato
+          </Text>
+
+          <View style={styles.contatoLinha}>
+            <Ionicons name={ICONE.email} size={layout.icone['2']} color={cores.texto.secundario} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.contatoTexto}>
+              {usuario?.email || 'E-mail não informado'}
+            </Text>
+          </View>
+
+          <View style={styles.contatoLinha}>
+            <Ionicons name={ICONE.telefone} size={layout.icone['2']} color={cores.texto.secundario} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.contatoTexto}>
+              {usuario?.telefone || 'Telefone não informado'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.secaoTitulo}>
+            Dados da conta
+          </Text>
+
+          {dados.map((dado, index) => (
+            <View
+              key={dado.rotulo}
+              style={[styles.dadoLinha, index > 0 && styles.dadoLinhaBorda]}
+            >
+              <View style={styles.dadoIcone}>
+                <Ionicons name={dado.icone} size={layout.icone['2']} color={cores.marca.azul} />
+              </View>
+              <View style={styles.dadoConteudo}>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.dadoRotulo}>
+                  {dado.rotulo}
+                </Text>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.dadoValor}>
+                  {dado.valor}
+                </Text>
               </View>
             </View>
           ))}
         </View>
 
-        <View style={styles.statsCard}>
-          <Text style={styles.sectionTitle}>Resumo da conta</Text>
-          <View style={styles.statsRow}>
-            {stats.map((s, i) => (
-              <View key={i} style={styles.statItem}>
-                <Text style={styles.statIcon}>{s.icon}</Text>
-                <Text style={styles.statValor}>{s.valor}</Text>
-                <Text style={styles.statLabel}>{s.label}</Text>
+        <View style={styles.card}>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.secaoTitulo}>
+            Resumo da conta
+          </Text>
+
+          <View style={styles.resumoLinha}>
+            {resumo.map((item) => (
+              <View key={item.rotulo} style={styles.resumoItem}>
+                <Ionicons name={item.icone} size={layout.icone['2']} color={cores.marca.azul} />
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoValor}>
+                  {item.valor}
+                </Text>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoRotulo}>
+                  {item.rotulo}
+                </Text>
               </View>
             ))}
           </View>
         </View>
 
-        <View style={styles.acoesCard}>
-          <Text style={styles.sectionTitle}>Ações rápidas</Text>
+        <View style={styles.card}>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.secaoTitulo}>
+            Ações rápidas
+          </Text>
 
-          <TouchableOpacity style={styles.acaoRow} onPress={() => navigation?.navigate('AdminUsers')}>
-            <Text style={styles.acaoEmoji}>👥</Text>
-            <Text style={styles.acaoLabel}>Gerenciar usuários</Text>
-            <Text style={styles.acaoArrow}>›</Text>
-          </TouchableOpacity>
+          <Pressable
+            onPress={() => navigation?.navigate('AdminUsers')}
+            accessibilityRole="button"
+            accessibilityLabel="Gerenciar usuários"
+            style={({ pressed }) => [styles.acaoLinha, pressed && { opacity: 0.7 }]}
+          >
+            <View style={styles.acaoIcone}>
+              <Ionicons name={ICONE.usuarios} size={layout.icone['2']} color={cores.marca.azul} />
+            </View>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.acaoTexto}>
+              Gerenciar usuários
+            </Text>
+            <Ionicons name={ICONE.avancar} size={layout.icone['2']} color={cores.texto.secundario} />
+          </Pressable>
 
-          <TouchableOpacity style={styles.acaoRow} onPress={() => navigation?.navigate('AdminHome')}>
-            <Text style={styles.acaoEmoji}>📋</Text>
-            <Text style={styles.acaoLabel}>Gerenciar ocorrências</Text>
-            <Text style={styles.acaoArrow}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.acaoRow} onPress={sair}>
-            <Text style={styles.acaoEmoji}>🚪</Text>
-            <Text style={[styles.acaoLabel, styles.acaoLabelRed]}>Sair da conta</Text>
-            <Text style={styles.acaoArrow}>›</Text>
-          </TouchableOpacity>
+          <Pressable
+            onPress={() => navigation?.navigate('AdminHome')}
+            accessibilityRole="button"
+            accessibilityLabel="Gerenciar ocorrências"
+            style={({ pressed }) => [styles.acaoLinha, pressed && { opacity: 0.7 }]}
+          >
+            <View style={styles.acaoIcone}>
+              <Ionicons name={ICONE.ocorrencias} size={layout.icone['2']} color={cores.marca.azul} />
+            </View>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.acaoTexto}>
+              Gerenciar ocorrências
+            </Text>
+            <Ionicons name={ICONE.avancar} size={layout.icone['2']} color={cores.texto.secundario} />
+          </Pressable>
         </View>
+
+        <Botao titulo="Sair da conta" icone={ICONE.sair} variante="destrutivo" onPress={sair} />
       </ScrollView>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('AdminHome')}>
-          <Text style={styles.navIcon}>🏠</Text>
-          <Text style={styles.navLabel}>Início</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('AdminUsers')}>
-          <Text style={styles.navIcon}>👥</Text>
-          <Text style={styles.navLabel}>Usuários</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem, styles.navItemActive]}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={[styles.navLabel, styles.navLabelActive]}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
+      <BarraInferior tipo="admin" ativo="perfil" navigation={navigation} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#7ec8e3' },
-  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 12 },
-  backArrow: { fontSize: 22, color: '#1a1a2e', marginTop: 2 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a2e' },
-  headerSubtitle: { fontSize: 13, color: '#1a3a5c' },
-  scroll: { paddingHorizontal: 14, paddingBottom: 24, gap: 12 },
-  profileCard: { backgroundColor: '#fff', borderRadius: 18, padding: 16 },
-  profileTop: { flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'flex-start' },
-  avatarCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#e0f2fe', alignItems: 'center', justifyContent: 'center' },
-  avatarEmoji: { fontSize: 38 },
-  profileInfo: { flex: 1, gap: 4 },
-  profileNome: { fontSize: 15, fontWeight: '700', color: '#1a1a2e' },
-  badgeWrapper: { alignSelf: 'flex-start', backgroundColor: '#1565c0', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 2 },
-  badgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
-  profileText: { fontSize: 12, color: '#334155' },
-  campoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
-  campoIcon: { fontSize: 18, width: 24, textAlign: 'center' },
-  campoContent: { flex: 1 },
-  campoLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 1 },
-  campoValue: { fontSize: 13, fontWeight: '500', color: '#1a1a2e' },
-  statsCard: { backgroundColor: '#fff', borderRadius: 18, padding: 16 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginBottom: 14 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  statItem: { alignItems: 'center', gap: 4 },
-  statIcon: { fontSize: 24 },
-  statValor: { fontSize: 18, fontWeight: '800', color: '#1a1a2e' },
-  statLabel: { fontSize: 11, color: '#64748b', textAlign: 'center', lineHeight: 16 },
-  acoesCard: { backgroundColor: '#fff', borderRadius: 18, padding: 16 },
-  acaoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  acaoEmoji: { fontSize: 18 },
-  acaoLabel: { flex: 1, fontSize: 14, fontWeight: '500', color: '#1a1a2e' },
-  acaoLabelRed: { color: '#ef4444' },
-  acaoArrow: { fontSize: 22, color: '#94a3b8', fontWeight: '300' },
-  bottomNav: { flexDirection: 'row', backgroundColor: '#7ec8e3', paddingVertical: 10, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)' },
-  navItem: { alignItems: 'center', gap: 2 },
-  navItemActive: {},
-  navIcon: { fontSize: 20 },
-  navLabel: { fontSize: 10, fontWeight: '500', color: '#1a3a5c' },
-  navLabelActive: { fontWeight: '700', color: '#1a1a2e' },
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['8'],
+    gap: espaco['4'],
+  },
+  perfilCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaco['4'],
+    backgroundColor: cores.superficie.azul,
+    borderRadius: raio['3'],
+    padding: espaco['5'],
+  },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  perfilInfo: { flex: 1, gap: espaco['2'], alignItems: 'flex-start' },
+  perfilNome: { ...tipografia.tituloTela, color: cores.texto.principal },
+  card: {
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    padding: espaco['4'],
+    gap: espaco['3'],
+    ...elevacao[1],
+  },
+  secaoTitulo: { ...tipografia.tituloSecao, color: cores.texto.principal },
+  contatoLinha: { flexDirection: 'row', alignItems: 'center', gap: espaco['2'] },
+  contatoTexto: { ...tipografia.corpo, color: cores.texto.principal, flex: 1 },
+  dadoLinha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaco['3'],
+    paddingTop: espaco['3'],
+  },
+  dadoLinhaBorda: { borderTopWidth: 1, borderTopColor: cores.borda.suave },
+  dadoIcone: {
+    width: 40,
+    height: 40,
+    borderRadius: raio['2'],
+    backgroundColor: cores.superficie.azul,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dadoConteudo: { flex: 1, gap: 2 },
+  dadoRotulo: { ...tipografia.legenda, color: cores.texto.secundario },
+  dadoValor: { ...tipografia.corpoForte, color: cores.texto.principal },
+  resumoLinha: { flexDirection: 'row', alignItems: 'flex-start' },
+  resumoItem: { flex: 1, alignItems: 'center', gap: espaco['1'] },
+  resumoValor: { ...tipografia.corpoForte, color: cores.texto.principal },
+  resumoRotulo: { ...tipografia.legendaNormal, color: cores.texto.secundario, textAlign: 'center' },
+  acaoLinha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaco['3'],
+    minHeight: 48,
+    paddingVertical: espaco['1'],
+    borderTopWidth: 1,
+    borderTopColor: cores.borda.suave,
+  },
+  acaoIcone: {
+    width: 40,
+    height: 40,
+    borderRadius: raio['2'],
+    backgroundColor: cores.superficie.azul,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acaoTexto: { ...tipografia.corpoForte, color: cores.texto.principal, flex: 1 },
 });

@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import Botao from '../components/Botao';
+import Campo from '../components/Campo';
+import Header from '../components/Header';
+import { FONTE_MAXIMA, cores, espaco, tipografia } from '../theme/tokens';
+import { ICONE } from '../theme/icones';
 import { cadastrar } from '../services/authService';
 
 export default function RegisterScreen({ navigation }: any) {
@@ -36,31 +51,98 @@ export default function RegisterScreen({ navigation }: any) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Criar conta</Text>
-      <Text style={styles.subtitle}>Leva menos de um minuto.</Text>
+    <SafeAreaView style={styles.container}>
+      <Header
+        variante="tela"
+        titulo="Criar conta"
+        subtitulo="Leva menos de um minuto."
+        onVoltar={() => navigation?.goBack?.()}
+      />
 
-      <TextInput style={styles.input} placeholder="Nome completo" placeholderTextColor="#94a3b8" value={nome} onChangeText={setNome} />
-      <TextInput style={styles.input} placeholder="E-mail" placeholderTextColor="#94a3b8" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoCorrect={false} />
-      <TextInput style={styles.input} placeholder="Senha (mínimo 6 caracteres)" placeholderTextColor="#94a3b8" value={senha} onChangeText={setSenha} secureTextEntry />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.title}>
+            Seus dados
+          </Text>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.subtitle}>
+            Depois de criar a conta você já pode registrar uma ocorrência.
+          </Text>
 
-      <TouchableOpacity style={[styles.button, carregando && { opacity: 0.6 }]} onPress={criarConta} disabled={carregando}>
-        <Text style={styles.buttonText}>{carregando ? 'Criando...' : 'Cadastrar'}</Text>
-      </TouchableOpacity>
+          <View style={styles.formulario}>
+            <Campo
+              rotulo="Nome completo"
+              valor={nome}
+              aoMudar={setNome}
+              placeholder="Como você quer ser chamado"
+              icone={ICONE.perfil}
+              capitalizacao="words"
+              acessibilidadeLabel="Campo de nome completo"
+            />
 
-      <TouchableOpacity onPress={() => navigation?.navigate?.('Login')}>
-        <Text style={styles.link}>Já tenho conta</Text>
-      </TouchableOpacity>
-    </View>
+            <Campo
+              rotulo="E-mail"
+              valor={email}
+              aoMudar={setEmail}
+              placeholder="seuemail@exemplo.com"
+              icone={ICONE.email}
+              teclado="email-address"
+              capitalizacao="none"
+              acessibilidadeLabel="Campo de e-mail"
+            />
+
+            <Campo
+              rotulo="Senha"
+              valor={senha}
+              aoMudar={setSenha}
+              placeholder="Mínimo de 6 caracteres"
+              ajuda="Use pelo menos 6 caracteres."
+              seguro
+              capitalizacao="none"
+              aoEnviar={criarConta}
+              acessibilidadeLabel="Campo de senha"
+            />
+          </View>
+
+          <Botao
+            titulo={carregando ? 'Criando conta...' : 'Cadastrar'}
+            onPress={criarConta}
+            carregando={carregando}
+            estilo={styles.botao}
+          />
+
+          <Botao
+            titulo="Já tenho conta"
+            variante="texto"
+            onPress={() => navigation?.navigate?.('Login')}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: '800', marginBottom: 4, color: '#1a1a2e' },
-  subtitle: { fontSize: 13.5, color: '#64748b', marginBottom: 22 },
-  input: { height: 48, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, paddingHorizontal: 12, marginBottom: 12, color: '#1a1a2e' },
-  button: { backgroundColor: '#1565c0', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  link: { textAlign: 'center', color: '#1565c0', marginTop: 18, fontWeight: '600' },
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  flex: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: espaco['6'],
+    paddingTop: espaco['6'],
+    paddingBottom: espaco['10'],
+  },
+  title: { ...tipografia.tituloTela, color: cores.texto.principal, marginBottom: espaco['1'] },
+  subtitle: {
+    ...tipografia.corpoPequeno,
+    color: cores.texto.secundario,
+    marginBottom: espaco['6'],
+  },
+  formulario: { gap: espaco['4'] },
+  botao: { marginTop: espaco['6'] },
 });

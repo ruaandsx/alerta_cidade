@@ -1,20 +1,39 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, StatusBar, ScrollView, TextInput, Alert, RefreshControl } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
+import BarraInferior from '../components/BarraInferior';
+import Botao from '../components/Botao';
+import BotaoIcone from '../components/BotaoIcone';
+import CardOcorrencia from '../components/CardOcorrencia';
+import Header from '../components/Header';
+import { Carregando, ErroLista, Vazio } from '../components/Estados';
+import {
+  FONTE_MAXIMA,
+  cores,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE } from '../theme/icones';
 import {
   listarOcorrencias,
   listarComentarios,
   criarComentario,
   deletarOcorrencia,
   Ocorrencia,
-  tituloCategoria,
-  emojiCategoria,
-  enderecoOcorrencia,
-  rotuloUrgencia,
-  corUrgencia,
-  rotuloStatus,
-  corStatus,
 } from '../services/ocorrenciaService';
 import { fonteImagem, FonteImagem } from '../services/api';
 import { getUsuarioLogado } from '../services/auth';
@@ -28,6 +47,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [usuario, setUsuario] = useState<{ id?: number; role?: string } | null>(null);
   const [carregandoFeed, setCarregandoFeed] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
+  const [erroFeed, setErroFeed] = useState(false);
   const [comentarios, setComentarios] = useState<{ [key: number]: string }>({});
   const [comentariosPorOcorrencia, setComentariosPorOcorrencia] = useState<{
     [key: number]: any[];
@@ -58,6 +78,7 @@ export default function HomeScreen({ navigation }: Props) {
   async function carregarFeed(mostrarLoading = true) {
     try {
       if (mostrarLoading) setCarregandoFeed(true);
+      setErroFeed(false);
 
       const ocorrencias = await listarOcorrencias({ size: 50 });
 
@@ -78,6 +99,7 @@ export default function HomeScreen({ navigation }: Props) {
     } catch (error) {
       console.log('Erro ao carregar feed:', error);
       setFeed([]);
+      setErroFeed(true);
     } finally {
       setCarregandoFeed(false);
       setAtualizando(false);
@@ -167,30 +189,23 @@ export default function HomeScreen({ navigation }: Props) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <View style={styles.header}>
-        <View style={styles.appNameRow}>
-          <Text style={styles.appNameBlue}>Observa</Text>
-          <Text style={styles.appNameGold}>Cidade</Text>
-        </View>
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.assistenteBtn}
-            onPress={() => navigation?.navigate('Assistente')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.assistenteIcon}>💬</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.notifBtn}
-            onPress={() => navigation?.navigate('Notification')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.notifIcon}>🔔</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Header
+        acoes={
+          <>
+            <BotaoIcone
+              icone={ICONE.assistente}
+              rotulo="Abrir assistente"
+              onPress={() => navigation?.navigate('Assistente')}
+              variante="azul"
+            />
+            <BotaoIcone
+              icone={ICONE.notificacoes}
+              rotulo="Ver notificações"
+              onPress={() => navigation?.navigate('Notification')}
+            />
+          </>
+        }
+      />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -202,407 +217,228 @@ export default function HomeScreen({ navigation }: Props) {
               setAtualizando(true);
               carregarFeed(false);
             }}
+            colors={[cores.marca.azul]}
+            tintColor={cores.marca.azul}
           />
         }
       >
-        <View style={styles.heroBanner}>
-          <View style={styles.heroText}>
-            <Text style={styles.heroTitle}>Faça sua parte por{'\n'}uma cidade melhor!</Text>
-            <Text style={styles.heroDesc}>Reporte problemas e ajude{'\n'}a construir soluções.</Text>
-
-            <TouchableOpacity
-              style={styles.heroBtn}
-              onPress={() => navigation?.navigate('NewReport')}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.heroBtnText}>Nova ocorrência</Text>
-            </TouchableOpacity>
+        <View style={styles.destaque}>
+          <View style={styles.destaqueIcone}>
+            <Ionicons name="megaphone-outline" size={layout.icone['4']} color={cores.marca.azul} />
           </View>
 
-          <View style={styles.heroIllustration}>
-            <View style={styles.agentCircle}>
-              <Text style={styles.agentEmoji}>👩‍💻</Text>
-            </View>
-
-            <View style={styles.bubble}>
-              <Text style={styles.bubbleDots}>···</Text>
-            </View>
+          <View style={styles.destaqueTexto}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.destaqueTitulo}>
+              Faça sua parte por uma cidade melhor!
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.destaqueDesc}>
+              Reporte problemas e ajude a construir soluções.
+            </Text>
           </View>
+
+          <Botao
+            titulo="Nova ocorrência"
+            icone={ICONE.adicionar}
+            onPress={() => navigation?.navigate('NewReport')}
+            larguraTotal={false}
+          />
         </View>
 
-        <Text style={styles.feedTitle}>Ocorrências ativas da população:</Text>
+        <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.secaoTitulo}>
+          Ocorrências ativas da população
+        </Text>
 
-        {carregandoFeed && <Text style={styles.emptyText}>Carregando ocorrências...</Text>}
+        {carregandoFeed ? (
+          <Carregando texto="Carregando ocorrências..." />
+        ) : erroFeed ? (
+          <ErroLista
+            descricao="Não conseguimos buscar as ocorrências agora."
+            aoTentarDeNovo={() => carregarFeed()}
+          />
+        ) : feed.length === 0 ? (
+          <Vazio
+            titulo="Nenhuma ocorrência ainda"
+            descricao="Quando alguém registrar um problema da cidade, ele aparece aqui."
+          />
+        ) : (
+          <View style={styles.lista}>
+            {feed.map((item) => {
+              const imagem = imagensComFalha[item.id as number]
+                ? null
+                : item.id
+                  ? imagens[item.id]
+                  : null;
+              const listaComentarios = comentariosPorOcorrencia[item.id as number] || [];
 
-        {!carregandoFeed && feed.length === 0 && (
-          <Text style={styles.emptyText}>Nenhuma ocorrência cadastrada ainda.</Text>
-        )}
-
-        {feed.map((item) => {
-          const imagem = imagensComFalha[item.id as number] ? null : item.id ? imagens[item.id] : null;
-
-          return (
-            <View key={item.id} style={styles.feedCard}>
-              <View style={styles.ocorrenciaRow}>
-                <TouchableOpacity
-                  style={styles.thumbnail}
+              return (
+                <CardOcorrencia
+                  key={item.id}
+                  item={item}
+                  imagem={imagem}
                   onPress={() => navigation?.navigate('ReportDetail', { item })}
-                  activeOpacity={0.8}
-                >
-                  {imagem ? (
-                    <Image
-                      source={imagem}
-                      style={styles.thumbnailImage}
-                      onError={() =>
-                        setImagensComFalha((prev) => ({ ...prev, [item.id as number]: true }))
-                      }
-                    />
-                  ) : (
-                    <Text style={styles.thumbnailEmoji}>{emojiCategoria(item.categoria)}</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.ocorrenciaInfo}
-                  onPress={() => navigation?.navigate('ReportDetail', { item })}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.tituloRow}>
-                    <Text style={styles.ocorrenciaTitulo}>{tituloCategoria(item.categoria)}</Text>
-
-                    <View
-                      style={[
-                        styles.statusPill,
-                        { backgroundColor: `${corStatus(item.status)}18` },
-                      ]}
-                    >
-                      <View
-                        style={[styles.statusDot, { backgroundColor: corStatus(item.status) }]}
-                      />
-                      <Text style={[styles.statusPillText, { color: corStatus(item.status) }]}>
-                        {rotuloStatus(item.status)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.ocorrenciaEndereco}>{enderecoOcorrencia(item)}</Text>
-                  <Text style={styles.ocorrenciaDescricao} numberOfLines={3}>
-                    {item.descricao}
-                  </Text>
-
-                  <View style={styles.ocorrenciaBottom}>
-                    <View style={styles.grauRow}>
-                      <View
-                        style={[styles.grauDot, { backgroundColor: corUrgencia(item.urgencia) }]}
-                      />
-                      <Text style={styles.grauText}>{rotuloUrgencia(item.urgencia)}</Text>
-                    </View>
-
-                    <Text style={styles.ocorrenciaData}>
-                      {item.dataCriacao
-                        ? new Date(item.dataCriacao).toLocaleDateString('pt-BR')
-                        : ''}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.menuDots}
-                  onPress={() => abrirMenuOcorrencia(item)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.menuDotsText}>⋮</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.divider} />
-
-              {(comentariosPorOcorrencia[item.id as number] || []).map((comentario, index) => (
-                <View key={comentario.id || index} style={styles.comentarioRow}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {(comentario.usuario?.nome || 'U').substring(0, 2).toUpperCase()}
-                    </Text>
-                  </View>
-
-                  <View style={styles.comentarioContent}>
-                    <View style={styles.comentarioHeader}>
-                      <Text style={styles.comentarioNome}>
-                        {comentario.usuario?.nome || 'Usuário'}
-                      </Text>
-                      <Text style={styles.comentarioTempo}>
-                        {comentario.dataCriacao
-                          ? new Date(comentario.dataCriacao).toLocaleDateString('pt-BR')
-                          : ''}
-                      </Text>
-                    </View>
-
-                    <Text style={styles.comentarioTexto}>{comentario.texto}</Text>
-                  </View>
-                </View>
-              ))}
-
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.commentInput}
-                  placeholder="Escreva um comentário..."
-                  placeholderTextColor="#94a3b8"
-                  value={comentarios[item.id as number] || ''}
-                  onChangeText={(text) =>
-                    setComentarios((prev) => ({ ...prev, [item.id as number]: text }))
+                  onPressMenu={() => abrirMenuOcorrencia(item)}
+                  aoFalharImagem={() =>
+                    setImagensComFalha((prev) => ({ ...prev, [item.id as number]: true }))
                   }
-                />
-
-                <TouchableOpacity
-                  style={styles.sendBtn}
-                  onPress={() => enviarComentario(item.id as number)}
-                  activeOpacity={0.7}
                 >
-                  <Text style={styles.sendIcon}>➤</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        })}
+                  {listaComentarios.map((comentario, index) => (
+                    <View key={comentario.id || index} style={styles.comentarioRow}>
+                      <View style={styles.avatar}>
+                        <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.avatarTexto}>
+                          {(comentario.usuario?.nome || 'U').substring(0, 2).toUpperCase()}
+                        </Text>
+                      </View>
+
+                      <View style={styles.comentarioConteudo}>
+                        <View style={styles.comentarioTopo}>
+                          <Text
+                            maxFontSizeMultiplier={FONTE_MAXIMA}
+                            numberOfLines={1}
+                            style={styles.comentarioNome}
+                          >
+                            {comentario.usuario?.nome || 'Usuário'}
+                          </Text>
+                          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.comentarioData}>
+                            {comentario.dataCriacao
+                              ? new Date(comentario.dataCriacao).toLocaleDateString('pt-BR')
+                              : ''}
+                          </Text>
+                        </View>
+
+                        <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.comentarioTexto}>
+                          {comentario.texto}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+
+                  <View style={styles.envioLinha}>
+                    <Ionicons
+                      name={ICONE.assistente}
+                      size={layout.icone['2']}
+                      color={cores.texto.secundario}
+                    />
+                    <TextInput
+                      style={styles.comentarioInput}
+                      placeholder="Escreva um comentário..."
+                      placeholderTextColor={cores.texto.placeholder}
+                      value={comentarios[item.id as number] || ''}
+                      onChangeText={(text) =>
+                        setComentarios((prev) => ({ ...prev, [item.id as number]: text }))
+                      }
+                      maxFontSizeMultiplier={FONTE_MAXIMA}
+                      accessibilityLabel="Campo de comentário"
+                      multiline
+                    />
+
+                    <Pressable
+                      onPress={() => enviarComentario(item.id as number)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Enviar comentário"
+                      hitSlop={4}
+                      style={({ pressed }) => [styles.enviar, pressed && { opacity: 0.8 }]}
+                    >
+                      <Ionicons
+                        name={ICONE.enviar}
+                        size={layout.icone['2']}
+                        color={cores.texto.inverso}
+                      />
+                    </Pressable>
+                  </View>
+                </CardOcorrencia>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={[styles.navItem, styles.navItemActive]} activeOpacity={0.7}>
-          <Text style={styles.navIcon}>🏠</Text>
-          <Text style={[styles.navLabel, styles.navLabelActive]}>Início</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItemCenter}
-          onPress={() => navigation?.navigate('NewReport')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.navPlus}>+</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => navigation?.navigate('Profile')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
+      <BarraInferior ativo="inicio" navigation={navigation} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 10,
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['6'],
   },
-  appNameRow: { flexDirection: 'row', alignItems: 'baseline' },
-  appNameBlue: { fontSize: 26, fontWeight: '700', color: '#1565c0' },
-  appNameGold: { fontSize: 26, fontWeight: '700', color: '#c8860a' },
-  notifBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
+  destaque: {
+    backgroundColor: cores.superficie.azul,
+    borderRadius: raio['3'],
+    padding: espaco['5'],
+    gap: espaco['3'],
+    marginBottom: espaco['6'],
   },
-  notifIcon: { fontSize: 22 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  assistenteBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#d6eef8',
-  },
-  assistenteIcon: { fontSize: 20 },
-
-  scroll: { paddingBottom: 24 },
-
-  heroBanner: {
-    backgroundColor: '#d6eef8',
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  heroText: { flex: 1 },
-  heroTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    lineHeight: 22,
-    marginBottom: 6,
-  },
-  heroDesc: { fontSize: 12, color: '#334155', lineHeight: 18, marginBottom: 12 },
-  heroBtn: {
-    backgroundColor: '#f5f0c8',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#e8dfc0',
-  },
-  heroBtnText: { fontSize: 13, fontWeight: '600', color: '#1a1a2e' },
-  heroIllustration: { position: 'relative', alignItems: 'center' },
-  agentCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#fff',
+  destaqueIcone: {
+    width: 48,
+    height: 48,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.base,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  agentEmoji: { fontSize: 42 },
-  bubble: {
-    position: 'absolute',
-    top: -8,
-    right: -4,
-    backgroundColor: '#5bb8d4',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+  destaqueTexto: { gap: espaco['1'] },
+  destaqueTitulo: { ...tipografia.subtitulo, color: cores.texto.principal },
+  destaqueDesc: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  secaoTitulo: {
+    ...tipografia.tituloSecao,
+    color: cores.texto.principal,
+    marginBottom: espaco['3'],
   },
-  bubbleDots: { fontSize: 12, color: '#fff', fontWeight: '700', letterSpacing: 1 },
-
-  feedTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1a1a2e',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  emptyText: { textAlign: 'center', color: '#64748b', marginTop: 20 },
-
-  feedCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingBottom: 12,
-  },
-  ocorrenciaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
-  thumbnail: {
-    width: 72,
-    height: 72,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    overflow: 'hidden',
-    backgroundColor: '#d6eef8',
-  },
-  thumbnailEmoji: { fontSize: 32 },
-  thumbnailImage: { width: '100%', height: '100%', borderRadius: 10 },
-  ocorrenciaInfo: { flex: 1 },
-  tituloRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  ocorrenciaTitulo: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', flexShrink: 1 },
-  statusPill: {
+  lista: { gap: espaco['4'] },
+  comentarioRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 999,
+    gap: espaco['2'],
   },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusPillText: { fontSize: 10, fontWeight: '700' },
-  ocorrenciaEndereco: { fontSize: 12, color: '#64748b', marginBottom: 2 },
-  ocorrenciaDescricao: { fontSize: 12, color: '#334155', marginBottom: 6, lineHeight: 17 },
-  ocorrenciaBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  grauRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  grauDot: { width: 10, height: 10, borderRadius: 5 },
-  grauText: { fontSize: 12, fontWeight: '500', color: '#1a1a2e' },
-  ocorrenciaData: { fontSize: 11, color: '#94a3b8' },
-  menuDots: { padding: 4 },
-  menuDotsText: { fontSize: 20, color: '#64748b', lineHeight: 22 },
-
-  divider: { height: 1, backgroundColor: '#f1f5f9', marginBottom: 10 },
-
-  comentarioRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.azul,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    backgroundColor: '#7c5cbf',
   },
-  avatarText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-  comentarioContent: { flex: 1 },
-  comentarioHeader: {
+  avatarTexto: { ...tipografia.legenda, color: cores.marca.azulEscuro },
+  comentarioConteudo: { flex: 1, gap: 2 },
+  comentarioTopo: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 2,
+    gap: espaco['2'],
   },
-  comentarioNome: { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
-  comentarioTempo: { fontSize: 11, color: '#94a3b8' },
-  comentarioTexto: { fontSize: 12, color: '#334155', lineHeight: 18, marginBottom: 4 },
-
-  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  commentInput: {
+  comentarioNome: {
+    ...tipografia.rotulo,
+    color: cores.texto.principal,
     flex: 1,
-    height: 38,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 14,
-    fontSize: 13,
-    color: '#1a1a2e',
   },
-  sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#5bb8d4',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendIcon: { fontSize: 14, color: '#fff' },
-
-  bottomNav: {
+  comentarioData: { ...tipografia.legendaNormal, color: cores.texto.secundario },
+  comentarioTexto: { ...tipografia.corpoPequeno, color: cores.texto.principal },
+  envioLinha: {
     flexDirection: 'row',
-    backgroundColor: '#7ec8e3',
-    paddingVertical: 10,
-    paddingHorizontal: 32,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)',
+    gap: espaco['2'],
   },
-  navItem: { alignItems: 'center', gap: 2 },
-  navItemActive: {},
-  navItemCenter: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#fff',
+  comentarioInput: {
+    flex: 1,
+    minHeight: 48,
+    maxHeight: 120,
+    borderWidth: 2,
+    borderColor: cores.borda.forte,
+    borderRadius: raio.pill,
+    paddingHorizontal: espaco['4'],
+    paddingVertical: espaco['2'],
+    ...tipografia.corpoPequeno,
+    color: cores.texto.principal,
+  },
+  enviar: {
+    width: 48,
+    height: 48,
+    borderRadius: raio.pill,
+    backgroundColor: cores.marca.azul,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -24,
-    elevation: 4,
   },
-  navPlus: { fontSize: 30, color: '#1a1a2e', lineHeight: 34 },
-  navIcon: { fontSize: 22 },
-  navLabel: { fontSize: 11, fontWeight: '500', color: '#1a3a5c' },
-  navLabelActive: { fontWeight: '700', color: '#1a1a2e' },
 });

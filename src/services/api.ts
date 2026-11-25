@@ -14,7 +14,15 @@ import { Platform } from 'react-native';
 
 const CHAVE_URL = 'apiUrl';
 const CHAVE_TOKEN = 'token';
+
+/**
+ * Porta padrão da API. A 8080 é a oficial, mas em algumas máquinas de
+ * desenvolvimento ela já está ocupada por outro programa (foi o que impedia
+ * o cadastro: o app batia em outro servidor e recebia 404). Por isso o app
+ * testa também a 8082 e escolhe a que responde com o /health da API.
+ */
 const PORTA_API = 8080;
+const PORTA_API_ALT = 8082;
 
 export type FonteImagem = { uri: string; headers?: Record<string, string> };
 
@@ -87,8 +95,13 @@ function urlPadrao(): string {
   return `http://localhost:${PORTA_API}`;
 }
 
+/** Mesmo host da URL padrão, na porta alternativa. */
+function urlPadraoAlternativa(): string {
+  return urlPadrao().replace(new RegExp(`:${PORTA_API}$`), `:${PORTA_API_ALT}`);
+}
+
 /** Testa se o servidor responde em /health (usado para escolher o melhor endereço). */
-async function servidorResponde(url: string, limiteMs = 2500): Promise<boolean> {
+async function servidorResponde(url: string, limiteMs = 3000): Promise<boolean> {
   const controlador = new AbortController();
   const timer = setTimeout(() => controlador.abort(), limiteMs);
 
@@ -106,13 +119,21 @@ async function servidorResponde(url: string, limiteMs = 2500): Promise<boolean> 
 
 /**
  * Endereços possíveis, em ordem de preferência:
- *  1. IP da máquina do Expo (Wi-Fi local)
- *  2. extra.apiUrl (endereço embutido no app)
- *  3. extra.apiUrlRemota (túnel público, usado quando o celular está em dados móveis)
+ *  1. IP da máquina do Expo na porta alternativa (8082), onde esta API costuma subir
+ *  2. IP da máquina do Expo na porta oficial (8080)
+ *  3. extra.apiUrl / extra.apiUrlAlternativa (endereço embutido no app)
+ *
+ * A ordem é decidida pelo /health: quem responder com {"status":"UP"} vence.
  */
 function candidatosDeUrl(): string[] {
   const extra = (Constants.expoConfig?.extra ?? {}) as any;
-  const lista = [urlPadrao(), extra.apiUrl, extra.apiUrlRemota]
+  const lista = [
+    urlPadraoAlternativa(),
+    extra.apiUrl,
+    urlPadrao(),
+    extra.apiUrlAlternativa,
+    extra.apiUrlRemota,
+  ]
     .filter((valor): valor is string => typeof valor === 'string' && !!valor.trim())
     .map(normalizarUrl);
 
@@ -138,8 +159,16 @@ export async function obterApiUrl(forcar = false): Promise<string> {
   try {
     const salva = await AsyncStorage.getItem(CHAVE_URL);
     if (salva) {
-      urlEmCache = normalizarUrl(salva);
-      return urlEmCache;
+      const normalizada = normalizarUrl(salva);
+
+      // Endereço salvo que não responde mais (mudou de rede, servidor subiu em
+      // outra porta) é descartado em vez de quebrar todo o app.
+      if (await servidorResponde(normalizada)) {
+        urlEmCache = normalizada;
+        return urlEmCache;
+      }
+
+      await AsyncStorage.removeItem(CHAVE_URL);
     }
   } catch {
     // segue para o padrão

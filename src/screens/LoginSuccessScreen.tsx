@@ -1,171 +1,88 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-type Props = {
-  navigation?: any;
-};
+import Botao from '../components/Botao';
+import Header from '../components/Header';
+import { FONTE_MAXIMA, cores, espaco, raio, tipografia } from '../theme/tokens';
+import { ICONE } from '../theme/icones';
+
+type Props = { navigation?: any };
 
 export default function LoginSuccessScreen({ navigation }: Props) {
-
-  const handleInicio = () => {
-    navigation?.replace?.('Home');
-  };
-
-  const handlePerfil = () => {
-    navigation?.navigate?.('Profile');
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Nome do app */}
-      <View style={styles.appNameRow}>
-        <Text style={styles.appNameBlue}>Observa</Text>
-        <Text style={styles.appNameGold}>Cidade</Text>
-      </View>
+      <Header variante="marca" />
 
-      {/* Ícone check com brilho */}
-      <View style={styles.checkGlow}>
-        <View style={styles.checkCircle}>
-          <Text style={styles.checkMark}>✓</Text>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.hero}>
+          <View style={styles.anel}>
+            <View style={styles.circulo}>
+              <Ionicons name="checkmark" size={52} color={cores.texto.inverso} />
+            </View>
+          </View>
+
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.titulo}>
+            Login realizado!
+          </Text>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.subtitulo}>
+            Que bom ter você de volta. Agora é só registrar e acompanhar as ocorrências da cidade.
+          </Text>
         </View>
-      </View>
 
-      {/* Título */}
-      <Text style={styles.title}>Login realizado{'\n'}com sucesso!</Text>
-
-      {/* Subtítulo */}
-      <Text style={styles.subtitle}>
-        Seja bem-vindo de volta ao{' '}
-        <Text style={styles.subtitleBlue}>Observa</Text>
-        <Text style={styles.subtitleGold}>Cidade</Text>
-        {'.\n'}
-        Ajude a melhorar nossas cidades.
-      </Text>
-
-      {/* Botões */}
-      <View style={styles.buttonsArea}>
-        <TouchableOpacity style={styles.button} onPress={handleInicio} activeOpacity={0.85}>
-          <Text style={styles.buttonText}>Ir para o início</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.button} onPress={handlePerfil} activeOpacity={0.85}>
-          <Text style={styles.buttonText}>Ir para o meu perfil</Text>
-        </TouchableOpacity>
-      </View>
-
+        <View style={styles.botoes}>
+          <Botao
+            titulo="Ir para o início"
+            icone={ICONE.inicio}
+            onPress={() => navigation?.replace?.('Home')}
+          />
+          <Botao
+            titulo="Ver meu perfil"
+            icone={ICONE.perfil}
+            variante="secundario"
+            onPress={() => navigation?.replace?.('Profile')}
+          />
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: espaco['6'],
+    paddingBottom: espaco['10'],
+    gap: espaco['8'],
+  },
+  hero: { alignItems: 'center', gap: espaco['2'] },
+  anel: {
+    width: 128,
+    height: 128,
+    borderRadius: raio.pill,
+    backgroundColor: cores.estado.sucessoFundo,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 28,
+    marginBottom: espaco['2'],
   },
-
-  /* Nome app */
-  appNameRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 40,
-  },
-  appNameBlue: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: '#1565c0',
-    letterSpacing: -0.3,
-  },
-  appNameGold: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: '#c8860a',
-    letterSpacing: -0.3,
-  },
-
-  /* Check com brilho verde ao redor */
-  checkGlow: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(76, 217, 100, 0.15)',
+  circulo: {
+    width: 96,
+    height: 96,
+    borderRadius: raio.pill,
+    backgroundColor: cores.estado.sucessoGrafico,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 36,
   },
-  checkCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#4cd964',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#4cd964',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  checkMark: {
-    fontSize: 78,
-    color: '#fff',
-    fontWeight: '700',
-    lineHeight: 86,
-  },
-
-  /* Título */
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#1a1a2e',
+  titulo: { ...tipografia.tituloTela, color: cores.texto.principal, textAlign: 'center' },
+  subtitulo: {
+    ...tipografia.corpo,
+    color: cores.texto.secundario,
     textAlign: 'center',
-    lineHeight: 34,
-    marginBottom: 14,
   },
-
-  /* Subtítulo */
-  subtitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a2e',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 48,
-  },
-  subtitleBlue: {
-    color: '#1565c0',
-    fontWeight: '700',
-  },
-  subtitleGold: {
-    color: '#c8860a',
-    fontWeight: '700',
-  },
-
-  /* Botões */
-  buttonsArea: {
-    width: '100%',
-    gap: 12,
-  },
-  button: {
-    width: '100%',
-    backgroundColor: '#7ec8e3',
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: '#1565c0',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  buttonText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1a1a2e',
-  },
+  botoes: { gap: espaco['3'] },
 });

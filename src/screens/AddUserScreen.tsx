@@ -1,863 +1,644 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
   ScrollView,
-  TextInput,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-type Props = { navigation?: any };
+import Botao from '../components/Botao';
+import Campo from '../components/Campo';
+import Header from '../components/Header';
+import {
+  FONTE_MAXIMA,
+  cores,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE, type NomeIcone } from '../theme/icones';
+import { criarUsuario, type NovoUsuario } from '../services/adminService';
 
-const permissoesOpcoes = [
-  { label: "Visualizar ocorrências", ativo: true },
-  { label: "Criar / responder ocorrências", ativo: true },
-  { label: "Editar status das ocorrências", ativo: true },
-  { label: "Gerenciar usuários", ativo: false },
-  { label: "Gerenciar categorias", ativo: false },
-  { label: "Acessar relatórios", ativo: true },
-  { label: "Configurações do sistema", ativo: false },
+type Props = { navigation?: any; route?: any };
+
+const PASSOS = ['Dados', 'Tipo', 'Confirmar'];
+
+const PERMISSOES_CIDADAO: { icone: NomeIcone; rotulo: string }[] = [
+  { icone: ICONE.ocorrencias, rotulo: 'Registrar ocorrências' },
+  { icone: ICONE.assistente, rotulo: 'Comentar nas ocorrências' },
+  { icone: ICONE.historico, rotulo: 'Acompanhar as próprias ocorrências' },
+  { icone: ICONE.ajuda, rotulo: 'Abrir chamados no suporte' },
 ];
 
-// ─── Header ADM reutilizável ─────────────────────────────────────────────────
-function AdminHeader() {
-  return (
-    <View style={styles.header}>
-      <Text style={styles.appNameBlue}>Observa</Text>
-      <Text style={styles.appNameGold}>Cidade</Text>
-      <View style={styles.admBadge}>
-        <Text style={styles.admBadgeText}>ADM</Text>
-      </View>
-    </View>
-  );
+const PERMISSOES_ADMIN: { icone: NomeIcone; rotulo: string }[] = [
+  { icone: ICONE.ocorrencias, rotulo: 'Tudo que o cidadão faz' },
+  { icone: ICONE.pendente, rotulo: 'Analisar e mudar o status das ocorrências' },
+  { icone: ICONE.usuarios, rotulo: 'Gerenciar usuários e permissões' },
+  { icone: ICONE.escudo, rotulo: 'Responder chamados do suporte' },
+];
+
+function iniciais(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return 'US';
+  if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
+  return `${partes[0][0]}${partes[partes.length - 1][0]}`.toUpperCase();
 }
 
-// ─── Stepper ─────────────────────────────────────────────────────────────────
-function Stepper({ step }: { step: number }) {
-  const steps = ["Dados pessoais", "Permissões", "Confirmar"];
+function Stepper({ passo }: { passo: number }) {
   return (
-    <View style={styles.stepperRow}>
-      {steps.map((s, i) => (
-        <React.Fragment key={i}>
-          <View style={styles.stepItem}>
-            <View
-              style={[
-                styles.stepCircle,
-                i + 1 <= step && styles.stepCircleActive,
-              ]}
-            >
-              <Text
-                style={[styles.stepNum, i + 1 <= step && styles.stepNumActive]}
-              >
-                {i + 1}
-              </Text>
-            </View>
-            <Text
-              style={[
-                styles.stepLabel,
-                i + 1 === step && styles.stepLabelActive,
-              ]}
-            >
-              {s}
-            </Text>
-          </View>
-          {i < steps.length - 1 && (
-            <View
-              style={[styles.stepLine, i + 1 < step && styles.stepLineActive]}
-            />
-          )}
-        </React.Fragment>
-      ))}
-    </View>
-  );
-}
+    <View style={styles.stepper} accessibilityLabel={`Passo ${passo} de 3`}>
+      {PASSOS.map((rotulo, indice) => {
+        const numero = indice + 1;
+        const ativo = numero === passo;
+        const concluido = numero < passo;
 
-// ─── Bottom Nav ──────────────────────────────────────────────────────────────
-function BottomNav({ navigation }: { navigation?: any }) {
-  return (
-    <View style={styles.bottomNav}>
-      <TouchableOpacity
-        style={styles.navItem}
-        onPress={() => navigation?.navigate("AdminHome")}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.navIcon}>🏠</Text>
-        <Text style={styles.navLabel}>Início</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.navItem}
-        onPress={() => navigation?.navigate("Historico")}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.navIcon}>📋</Text>
-        <Text style={styles.navLabel}>Ocorrências</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.navItemCenter} activeOpacity={0.7}>
-        <Text style={styles.navPlus}>+</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.navItem, styles.navItemActive]}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.navIcon}>👥</Text>
-        <Text style={[styles.navLabel, styles.navLabelActive]}>Usuários</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.navItem}
-        onPress={() => navigation?.navigate("AdminProfile")}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.navIcon}>👤</Text>
-        <Text style={styles.navLabel}>Perfil</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// STEP 1 — Dados pessoais
-// ═══════════════════════════════════════════════════════════════════════════════
-export function AddUserStep1({ navigation }: Props) {
-  const campos = [
-    {
-      label: "E-mail *",
-      placeholder: "exemplo@email.com",
-      keyboard: "email-address" as const,
-    },
-    {
-      label: "Telefone *",
-      placeholder: "(81) 99999-9999",
-      keyboard: "phone-pad" as const,
-    },
-    {
-      label: "CPF *",
-      placeholder: "000.000.000-00",
-      keyboard: "numeric" as const,
-    },
-    {
-      label: "Data de nascimento *",
-      placeholder: "dd/mm/aaaa",
-      keyboard: "numeric" as const,
-    },
-    {
-      label: "Endereço *",
-      placeholder: "Digite o endereço completo",
-      keyboard: "default" as const,
-    },
-    {
-      label: "Bairro *",
-      placeholder: "Digite o bairro",
-      keyboard: "default" as const,
-    },
-  ];
-  const [valores, setValores] = useState<{ [k: string]: string }>({});
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      <AdminHeader />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Título */}
-        <View style={styles.titleRow}>
-          <View>
-            <Text style={styles.pageTitle}>Adicionar usuário</Text>
-            <Text style={styles.pageSubtitle}>
-              Preencha os dados para criar um novo usuário no sistema.
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation?.goBack()}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.closeX}>✕</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Stepper step={1} />
-
-        {/* Seção dados pessoais */}
-        <Text style={styles.sectionTitle}>Dados pessoais</Text>
-
-        {/* Avatar upload */}
-        <View style={styles.avatarUpload}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarCameraIcon}>📷</Text>
-          </View>
-          {/* Nome completo */}
-          <View style={styles.nomeField}>
-            <Text style={styles.fieldLabel}>Nome completo *</Text>
-            <TextInput
-              style={styles.fieldInput}
-              placeholder="Digite o nome completo"
-              placeholderTextColor="#94a3b8"
-            />
-          </View>
-        </View>
-
-        {/* Outros campos */}
-        {campos.map((c, i) => (
-          <View key={i} style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{c.label}</Text>
-            <TextInput
-              style={styles.fieldInput}
-              placeholder={c.placeholder}
-              placeholderTextColor="#94a3b8"
-              keyboardType={c.keyboard}
-              value={valores[c.label] || ""}
-              onChangeText={(t) => setValores((v) => ({ ...v, [c.label]: t }))}
-            />
-          </View>
-        ))}
-
-        {/* Cidade + CEP */}
-        <View style={styles.rowFields}>
-          <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>Cidade *</Text>
-            <TextInput
-              style={styles.fieldInput}
-              placeholder="Digite a cidade"
-              placeholderTextColor="#94a3b8"
-            />
-          </View>
-          <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>CEP *</Text>
-            <TextInput
-              style={styles.fieldInput}
-              placeholder="00000-000"
-              placeholderTextColor="#94a3b8"
-              keyboardType="numeric"
-            />
-          </View>
-        </View>
-
-        {/* Botões */}
-        <View style={styles.botoesRow}>
-          <TouchableOpacity
-            style={styles.btnSecondary}
-            onPress={() => navigation?.goBack()}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.btnSecondaryText}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.btnPrimary}
-            onPress={() => navigation?.navigate("AddUserStep2")}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.btnPrimaryText}>Próximo</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-      <BottomNav navigation={navigation} />
-    </SafeAreaView>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// STEP 2 — Permissões
-// ═══════════════════════════════════════════════════════════════════════════════
-export function AddUserStep2({ navigation }: Props) {
-  const [tipoSelecionado, setTipoSelecionado] = useState<
-    "funcionario" | "superadmin"
-  >("funcionario");
-  const [permissoes, setPermissoes] = useState(
-    permissoesOpcoes.map((p) => p.ativo),
-  );
-
-  const togglePermissao = (i: number) => {
-    setPermissoes((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
-  };
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      <AdminHeader />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.titleRow}>
-          <View>
-            <Text style={styles.pageTitle}>Definir tipo de usuário</Text>
-            <Text style={styles.pageSubtitle}>
-              Escolha o tipo de usuário e as permissões que ele terá.
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation?.navigate("AdminUsers")}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.closeX}>✕</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Stepper step={2} />
-
-        {/* Tipo Funcionário */}
-        <TouchableOpacity
-          style={[
-            styles.tipoCard,
-            tipoSelecionado === "funcionario" && styles.tipoCardActive,
-          ]}
-          onPress={() => setTipoSelecionado("funcionario")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.tipoIconBox, { backgroundColor: "#fef9c3" }]}>
-            <Text style={styles.tipoEmoji}>👷</Text>
-          </View>
-          <View style={styles.tipoInfo}>
-            <Text style={styles.tipoNome}>Funcionário</Text>
-            <Text style={styles.tipoDesc}>
-              Pode analisar, responder e atualizar o status das ocorrências.
-            </Text>
-            <View style={styles.acessoBadge}>
-              <Text style={styles.acessoBadgeText}>Acesso moderado</Text>
-            </View>
-          </View>
-          <View
-            style={[
-              styles.radioOuter,
-              tipoSelecionado === "funcionario" && styles.radioOuterActive,
-            ]}
-          >
-            {tipoSelecionado === "funcionario" && (
-              <View style={styles.radioInner} />
-            )}
-          </View>
-        </TouchableOpacity>
-
-        {/* Tipo Super Admin */}
-        <TouchableOpacity
-          style={[
-            styles.tipoCard,
-            tipoSelecionado === "superadmin" && styles.tipoCardActive,
-          ]}
-          onPress={() => setTipoSelecionado("superadmin")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.tipoIconBox, { backgroundColor: "#fee2e2" }]}>
-            <Text style={styles.tipoEmoji}>🛡️</Text>
-          </View>
-          <View style={styles.tipoInfo}>
-            <Text style={styles.tipoNome}>Super Administrador</Text>
-            <Text style={styles.tipoDesc}>
-              Acesso total ao sistema, com todas as permissões e configuração.
-            </Text>
-            <View style={[styles.acessoBadge, styles.acessoBadgeTotal]}>
-              <Text style={styles.acessoBadgeText}>Acesso total</Text>
-            </View>
-          </View>
-          <View
-            style={[
-              styles.radioOuter,
-              tipoSelecionado === "superadmin" && styles.radioOuterActive,
-            ]}
-          >
-            {tipoSelecionado === "superadmin" && (
-              <View style={styles.radioInner} />
-            )}
-          </View>
-        </TouchableOpacity>
-
-        {/* Permissões específicas */}
-        <Text style={styles.sectionTitle}>Permissões específicas</Text>
-        <View style={styles.permissoesCard}>
-          {permissoesOpcoes.map((p, i) => (
-            <TouchableOpacity
-              key={i}
-              style={styles.permissaoRow}
-              onPress={() => togglePermissao(i)}
-              activeOpacity={0.7}
-            >
+        return (
+          <React.Fragment key={rotulo}>
+            <View style={styles.passo}>
               <View
                 style={[
-                  styles.checkbox,
-                  permissoes[i] && styles.checkboxActive,
+                  styles.passoCirculo,
+                  (ativo || concluido) && styles.passoCirculoAtivo,
                 ]}
               >
-                {permissoes[i] && <Text style={styles.checkboxCheck}>✓</Text>}
+                {concluido ? (
+                  <Ionicons name="checkmark" size={layout.icone['1']} color={cores.texto.inverso} />
+                ) : (
+                  <Text
+                    maxFontSizeMultiplier={FONTE_MAXIMA}
+                    style={[styles.passoNumero, ativo && styles.passoNumeroAtivo]}
+                  >
+                    {numero}
+                  </Text>
+                )}
               </View>
-              <Text style={styles.permissaoLabel}>{p.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              <Text
+                maxFontSizeMultiplier={FONTE_MAXIMA}
+                numberOfLines={1}
+                style={[styles.passoRotulo, ativo && styles.passoRotuloAtivo]}
+              >
+                {rotulo}
+              </Text>
+            </View>
 
-        <View style={styles.botoesRow}>
-          <TouchableOpacity
-            style={styles.btnSecondary}
-            onPress={() => navigation?.goBack()}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.btnSecondaryText}>Voltar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.btnPrimary}
-            onPress={() => navigation?.navigate("AddUserStep3")}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.btnPrimaryText}>Próximo</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-      <BottomNav navigation={navigation} />
-    </SafeAreaView>
+            {indice < PASSOS.length - 1 ? (
+              <View style={[styles.linha, concluido && styles.linhaAtiva]} />
+            ) : null}
+          </React.Fragment>
+        );
+      })}
+    </View>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// STEP 3 — Confirmar
-// ═══════════════════════════════════════════════════════════════════════════════
-export function AddUserStep3({ navigation }: Props) {
-  const permissoesConfirmadas = [
-    { icon: "📋", label: "Criar / responder ocorrência" },
-    { icon: "👁️", label: "Visualizar ocorrências" },
-    { icon: "✏️", label: "Editar status de ocorrência" },
-    { icon: "📊", label: "Acessar relatórios" },
-  ];
+// ── Passo 1: dados ────────────────────────────────────────────────────────────
+export function AddUserStep1({ navigation }: Props) {
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [erros, setErros] = useState<{ nome?: string; email?: string; senha?: string }>({});
+
+  function avancar() {
+    const novos: typeof erros = {};
+
+    if (nome.trim().length < 3) novos.nome = 'Informe o nome completo (mínimo 3 letras).';
+    if (!email.includes('@')) novos.email = 'Confira o e-mail informado.';
+    if (senha.length < 6) novos.senha = 'A senha precisa ter pelo menos 6 caracteres.';
+
+    setErros(novos);
+    if (Object.keys(novos).length > 0) return;
+
+    navigation?.navigate?.('AddUserStep2', {
+      dados: {
+        nome: nome.trim(),
+        email: email.trim().toLowerCase(),
+        senha,
+        telefone: telefone.trim() || undefined,
+        cidade: cidade.trim() || undefined,
+      },
+    });
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <AdminHeader />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
+
+      <Header
+        variante="tela"
+        titulo="Adicionar usuário"
+        subtitulo="Passo 1 de 3 · Dados pessoais"
+        onVoltar={() => navigation?.goBack?.()}
+      />
+
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.titleRow}>
-          <View>
-            <Text style={styles.pageTitle}>Confirmar informações</Text>
-            <Text style={styles.pageSubtitle}>
-              Revise os dados abaixo antes de finalizar seu cadastro.
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation?.navigate("AdminUsers")}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.closeX}>✕</Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Stepper passo={1} />
 
-        <Stepper step={3} />
-
-        {/* Resumo cadastro */}
-        <View style={styles.resumoCard}>
-          <Text style={styles.sectionTitle}>Resumo do cadastro</Text>
-
-          <View style={styles.resumoTop}>
-            <View style={styles.resumoAvatar}>
-              <Text style={styles.resumoAvatarEmoji}>👤</Text>
-            </View>
-            <View style={styles.resumoInfo}>
-              <Text style={styles.resumoInfoLabel}>Nome completo</Text>
-              <Text style={styles.resumoInfoValue}>Paulo Henrique</Text>
-              <Text style={styles.resumoInfoLabel}>E-mail</Text>
-              <Text style={styles.resumoInfoValue}>paulohr@gmail.com</Text>
-            </View>
-            <View style={styles.resumoInfoRight}>
-              <Text style={styles.resumoInfoLabel}>Telefone</Text>
-              <Text style={styles.resumoInfoValue}>(81) 99999-9999</Text>
-              <Text style={styles.resumoInfoLabel}>CPF</Text>
-              <Text style={styles.resumoInfoValue}>123.456.789-00</Text>
-            </View>
-          </View>
-
-          <View style={styles.resumoGrid}>
-            <View style={styles.resumoGridItem}>
-              <Text style={styles.resumoGridLabel}>Data de nascimento</Text>
-              <Text style={styles.resumoGridValue}>20/05/1999</Text>
-            </View>
-            <View style={styles.resumoGridItem}>
-              <Text style={styles.resumoGridLabel}>Endereço</Text>
-              <Text style={styles.resumoGridValue}>
-                Rua Matias da Silva, 22
-              </Text>
-            </View>
-            <View style={styles.resumoGridItem}>
-              <Text style={styles.resumoGridLabel}>Cidade / CEP</Text>
-              <Text style={styles.resumoGridValue}>
-                Surubim / PE - 55750-000
-              </Text>
-            </View>
-            <View style={styles.resumoGridItem}>
-              <Text style={styles.resumoGridLabel}>Status da conta</Text>
-              <View style={styles.statusAtivo}>
-                <View style={styles.statusDot} />
-                <Text style={styles.statusAtivoText}>Ativo</Text>
+          <View style={styles.cartao}>
+            <View style={styles.previa}>
+              <View style={styles.previaAvatar}>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.previaTexto}>
+                  {iniciais(nome)}
+                </Text>
+              </View>
+              <View style={styles.previaInfo}>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.previaNome}>
+                  {nome.trim() || 'Novo usuário'}
+                </Text>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.previaEmail}>
+                  {email.trim() || 'O e-mail será o login'}
+                </Text>
               </View>
             </View>
-            <View style={styles.resumoGridItem}>
-              <Text style={styles.resumoGridLabel}>Tipo de usuário</Text>
-              <View style={styles.tipoBadge}>
-                <Text style={styles.tipoBadgeText}>Funcionário</Text>
-              </View>
+
+            <View style={styles.formulario}>
+              <Campo
+                rotulo="Nome completo"
+                valor={nome}
+                aoMudar={(texto) => {
+                  setNome(texto);
+                  if (erros.nome) setErros((e) => ({ ...e, nome: undefined }));
+                }}
+                placeholder="Nome e sobrenome"
+                icone={ICONE.perfil}
+                capitalizacao="words"
+                erro={erros.nome}
+                acessibilidadeLabel="Nome completo do novo usuário"
+              />
+
+              <Campo
+                rotulo="E-mail"
+                valor={email}
+                aoMudar={(texto) => {
+                  setEmail(texto);
+                  if (erros.email) setErros((e) => ({ ...e, email: undefined }));
+                }}
+                placeholder="usuario@exemplo.com"
+                icone={ICONE.email}
+                teclado="email-address"
+                capitalizacao="none"
+                erro={erros.email}
+                acessibilidadeLabel="E-mail do novo usuário"
+              />
+
+              <Campo
+                rotulo="Senha inicial"
+                valor={senha}
+                aoMudar={(texto) => {
+                  setSenha(texto);
+                  if (erros.senha) setErros((e) => ({ ...e, senha: undefined }));
+                }}
+                placeholder="Mínimo de 6 caracteres"
+                seguro
+                capitalizacao="none"
+                ajuda="O usuário pode trocar depois em Meus dados."
+                erro={erros.senha}
+                acessibilidadeLabel="Senha inicial do novo usuário"
+              />
+
+              <Campo
+                rotulo="Telefone"
+                valor={telefone}
+                aoMudar={setTelefone}
+                placeholder="Opcional"
+                icone={ICONE.telefone}
+                teclado="phone-pad"
+                acessibilidadeLabel="Telefone do novo usuário"
+              />
+
+              <Campo
+                rotulo="Cidade"
+                valor={cidade}
+                aoMudar={setCidade}
+                placeholder="Opcional"
+                icone={ICONE.localizacao}
+                capitalizacao="words"
+                acessibilidadeLabel="Cidade do novo usuário"
+              />
             </View>
           </View>
-        </View>
 
-        {/* Permissões concedidas */}
-        <View style={styles.permissoesCardConfirm}>
-          <Text style={styles.sectionTitle}>Permissões concedidas</Text>
-          {permissoesConfirmadas.map((p, i) => (
-            <View key={i} style={styles.permissaoConfirmRow}>
-              <Text style={styles.permissaoConfirmIcon}>{p.icon}</Text>
-              <Text style={styles.permissaoConfirmLabel}>{p.label}</Text>
-              <Text style={styles.permissaoCheck}>✅</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.botoesRow}>
-          <TouchableOpacity
-            style={styles.btnSecondary}
-            onPress={() => navigation?.goBack()}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.btnSecondaryText}>Voltar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.btnPrimary}
-            onPress={() => navigation?.navigate("AdminUsers")}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.btnPrimaryText}>Confirmar</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-      <BottomNav navigation={navigation} />
+          <View style={styles.botoes}>
+            <Botao
+              titulo="Cancelar"
+              variante="secundario"
+              onPress={() => navigation?.goBack?.()}
+              larguraTotal={false}
+              estilo={styles.botaoMetade}
+            />
+            <Botao
+              titulo="Próximo"
+              icone={ICONE.avancar}
+              onPress={avancar}
+              larguraTotal={false}
+              estilo={styles.botaoMetade}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ── Passo 2: tipo e permissões ────────────────────────────────────────────────
+export function AddUserStep2({ navigation, route }: Props) {
+  const dados: NovoUsuario | undefined = route?.params?.dados;
+  const [tipo, setTipo] = useState<'USER' | 'ADMIN'>('USER');
+
+  const permissoes = tipo === 'ADMIN' ? PERMISSOES_ADMIN : PERMISSOES_CIDADAO;
+
+  function avancar() {
+    navigation?.navigate?.('AddUserStep3', { dados, tipo });
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      <Header
+        variante="tela"
+        titulo="Adicionar usuário"
+        subtitulo="Passo 2 de 3 · Tipo de acesso"
+        onVoltar={() => navigation?.goBack?.()}
+      />
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Stepper passo={2} />
+
+        <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rotuloSecao}>
+          O que este usuário poderá fazer?
+        </Text>
+
+        {(['USER', 'ADMIN'] as const).map((opcao) => {
+          const admin = opcao === 'ADMIN';
+          const ativo = tipo === opcao;
+
+          return (
+            <Pressable
+              key={opcao}
+              onPress={() => setTipo(opcao)}
+              accessibilityRole="radio"
+              accessibilityLabel={admin ? 'Administrador' : 'Cidadão'}
+              accessibilityState={{ checked: ativo }}
+              style={({ pressed }) => [
+                styles.tipoCartao,
+                ativo && styles.tipoCartaoAtivo,
+                pressed && { opacity: 0.9 },
+              ]}
+            >
+              <View style={[styles.tipoIcone, admin ? styles.tipoIconeAdmin : styles.tipoIconeUser]}>
+                <Ionicons
+                  name={admin ? ICONE.escudo : ICONE.perfil}
+                  size={layout.icone['3']}
+                  color={admin ? cores.texto.inverso : cores.marca.azul}
+                />
+              </View>
+
+              <View style={styles.tipoInfo}>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.tipoNome}>
+                  {admin ? 'Administrador' : 'Cidadão'}
+                </Text>
+                <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.tipoDesc}>
+                  {admin
+                    ? 'Acesso à gestão: analisa ocorrências, gerencia usuários e responde o suporte.'
+                    : 'Acesso comum: registra e acompanha as próprias ocorrências.'}
+                </Text>
+              </View>
+
+              <View style={[styles.radio, ativo && styles.radioAtivo]}>
+                {ativo ? <View style={styles.radioPonto} /> : null}
+              </View>
+            </Pressable>
+          );
+        })}
+
+        <View style={styles.permissoes}>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.permissoesTitulo}>
+            Permissões {tipo === 'ADMIN' ? 'do administrador' : 'do cidadão'}
+          </Text>
+
+          {permissoes.map((item) => (
+            <View key={item.rotulo} style={styles.permissao}>
+              <Ionicons name={item.icone} size={layout.icone['2']} color={cores.marca.azul} />
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.permissaoTexto}>
+                {item.rotulo}
+              </Text>
+              <Ionicons name="checkmark-circle" size={layout.icone['2']} color={cores.estado.sucessoGrafico} />
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.botoes}>
+          <Botao
+            titulo="Voltar"
+            variante="secundario"
+            onPress={() => navigation?.goBack?.()}
+            larguraTotal={false}
+            estilo={styles.botaoMetade}
+          />
+          <Botao
+            titulo="Próximo"
+            icone={ICONE.avancar}
+            onPress={avancar}
+            larguraTotal={false}
+            estilo={styles.botaoMetade}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ── Passo 3: confirmação ──────────────────────────────────────────────────────
+export function AddUserStep3({ navigation, route }: Props) {
+  const dados: NovoUsuario | undefined = route?.params?.dados;
+  const tipo: 'USER' | 'ADMIN' = route?.params?.tipo || 'USER';
+  const [criando, setCriando] = useState(false);
+
+  async function confirmar() {
+    if (!dados) {
+      Alert.alert('Dados perdidos', 'Volte ao primeiro passo e preencha novamente.');
+      navigation?.navigate?.('AddUserStep1');
+      return;
+    }
+
+    try {
+      setCriando(true);
+
+      await criarUsuario(dados, tipo === 'ADMIN');
+
+      Alert.alert(
+        'Usuário criado',
+        `${dados.nome} já pode entrar com o e-mail ${dados.email}.` +
+          (tipo === 'ADMIN' ? '\n\nA conta foi criada como administrador.' : ''),
+        [{ text: 'OK', onPress: () => navigation?.navigate?.('AdminUsers') }],
+      );
+    } catch (e: any) {
+      const mensagem =
+        e?.status === 409
+          ? 'Já existe uma conta com este e-mail.'
+          : e?.message || 'Não foi possível criar o usuário.';
+
+      Alert.alert('Erro ao criar usuário', mensagem);
+    } finally {
+      setCriando(false);
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      <Header
+        variante="tela"
+        titulo="Adicionar usuário"
+        subtitulo="Passo 3 de 3 · Confirmar"
+        onVoltar={() => navigation?.goBack?.()}
+      />
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Stepper passo={3} />
+
+        <View style={styles.resumo}>
+          <View style={styles.resumoTopo}>
+            <View style={styles.previaAvatar}>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.previaTexto}>
+                {iniciais(dados?.nome || '')}
+              </Text>
+            </View>
+
+            <View style={styles.resumoInfo}>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoNome}>
+                {dados?.nome || 'Novo usuário'}
+              </Text>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoEmail}>
+                {dados?.email || 'sem e-mail'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.divisor} />
+
+          <View style={styles.resumoLinha}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoRotulo}>
+              Tipo de acesso
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoValor}>
+              {tipo === 'ADMIN' ? 'Administrador' : 'Cidadão'}
+            </Text>
+          </View>
+
+          <View style={styles.resumoLinha}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoRotulo}>
+              Telefone
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoValor}>
+              {dados?.telefone || 'Não informado'}
+            </Text>
+          </View>
+
+          <View style={styles.resumoLinha}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoRotulo}>
+              Cidade
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.resumoValor}>
+              {dados?.cidade || 'Não informada'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.aviso}>
+          <Ionicons name={ICONE.escudo} size={layout.icone['2']} color={cores.marca.azulEscuro} />
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.avisoTexto}>
+            A senha informada no passo 1 será a senha inicial. Combine com o usuário para ele
+            trocar no primeiro acesso.
+          </Text>
+        </View>
+
+        <View style={styles.botoes}>
+          <Botao
+            titulo="Voltar"
+            variante="secundario"
+            onPress={() => navigation?.goBack?.()}
+            larguraTotal={false}
+            estilo={styles.botaoMetade}
+          />
+          <Botao
+            titulo={criando ? 'Criando...' : 'Confirmar'}
+            icone="checkmark"
+            onPress={confirmar}
+            carregando={criando}
+            larguraTotal={false}
+            estilo={styles.botaoMetade}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#7ec8e3" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 10,
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  flex: { flex: 1 },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['8'],
+    gap: espaco['5'],
   },
-  appNameBlue: { fontSize: 22, fontWeight: "700", color: "#1565c0" },
-  appNameGold: { fontSize: 22, fontWeight: "700", color: "#c8860a" },
-  admBadge: {
-    backgroundColor: "#5bb8d4",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  admBadgeText: { fontSize: 11, fontWeight: "700", color: "#fff" },
-  scroll: { paddingHorizontal: 14, paddingBottom: 24 },
 
-  /* Título */
-  titleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 16,
+  stepper: { flexDirection: 'row', alignItems: 'flex-start' },
+  passo: { alignItems: 'center', gap: espaco['1'], width: 84 },
+  passoCirculo: {
+    width: 32,
+    height: 32,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.media,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pageTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#1a1a2e",
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 12,
-    color: "#64748b",
-    lineHeight: 17,
-    maxWidth: 260,
-  },
-  closeX: { fontSize: 20, color: "#ef4444", fontWeight: "700" },
-
-  /* Stepper */
-  stepperRow: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
-  stepItem: { alignItems: "center", gap: 4 },
-  stepCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#e2e8f0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepCircleActive: { backgroundColor: "#1565c0" },
-  stepNum: { fontSize: 13, fontWeight: "700", color: "#94a3b8" },
-  stepNumActive: { color: "#fff" },
-  stepLabel: { fontSize: 9, color: "#94a3b8", textAlign: "center" },
-  stepLabelActive: { color: "#1565c0", fontWeight: "700" },
-  stepLine: {
+  passoCirculoAtivo: { backgroundColor: cores.marca.azul },
+  passoNumero: { ...tipografia.rotulo, color: cores.texto.secundario },
+  passoNumeroAtivo: { color: cores.texto.inverso },
+  passoRotulo: { ...tipografia.legendaNormal, color: cores.texto.secundario },
+  passoRotuloAtivo: { color: cores.marca.azul, fontWeight: '600' },
+  linha: {
     flex: 1,
     height: 2,
-    backgroundColor: "#e2e8f0",
-    marginBottom: 12,
+    backgroundColor: cores.borda.suave,
+    marginTop: 15,
   },
-  stepLineActive: { backgroundColor: "#1565c0" },
+  linhaAtiva: { backgroundColor: cores.marca.azul },
 
-  /* Seção */
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#1a1a2e",
-    marginBottom: 12,
+  cartao: { gap: espaco['4'] },
+  previa: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaco['3'],
+    backgroundColor: cores.superficie.azul,
+    borderRadius: raio['3'],
+    padding: espaco['4'],
   },
-
-  /* Avatar upload */
-  avatarUpload: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
-  },
-  avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#5bb8d4",
-    alignItems: "center",
-    justifyContent: "center",
+  previaAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: raio.pill,
+    backgroundColor: cores.marca.azul,
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
-  avatarCameraIcon: { fontSize: 28 },
-  nomeField: { flex: 1 },
+  previaTexto: { ...tipografia.corpoForte, color: cores.texto.inverso },
+  previaInfo: { flex: 1, gap: 2 },
+  previaNome: { ...tipografia.corpoForte, color: cores.texto.principal },
+  previaEmail: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  formulario: { gap: espaco['4'] },
 
-  /* Campos */
-  fieldGroup: { marginBottom: 10 },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#1a1a2e",
-    marginBottom: 5,
-  },
-  fieldInput: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    height: 44,
-    fontSize: 14,
-    color: "#1a1a2e",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  rowFields: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  rotuloSecao: { ...tipografia.tituloSecao, color: cores.texto.principal },
 
-  /* Botões */
-  botoesRow: { flexDirection: "row", gap: 12, marginTop: 20 },
-  btnSecondary: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  btnSecondaryText: { fontSize: 15, fontWeight: "600", color: "#1a1a2e" },
-  btnPrimary: {
-    flex: 1,
-    backgroundColor: "#5bb8d4",
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: "center",
-  },
-  btnPrimaryText: { fontSize: 15, fontWeight: "700", color: "#fff" },
-
-  /* Tipo card */
-  tipoCard: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    marginBottom: 12,
+  tipoCartao: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaco['3'],
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
     borderWidth: 2,
-    borderColor: "transparent",
+    borderColor: cores.borda.suave,
+    padding: espaco['3'],
   },
-  tipoCardActive: { borderColor: "#5bb8d4" },
-  tipoIconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  tipoEmoji: { fontSize: 28 },
-  tipoInfo: { flex: 1 },
-  tipoNome: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#1a1a2e",
-    marginBottom: 4,
-  },
-  tipoDesc: { fontSize: 12, color: "#64748b", lineHeight: 17, marginBottom: 8 },
-  acessoBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "#fef9c3",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  acessoBadgeTotal: { backgroundColor: "#fee2e2" },
-  acessoBadgeText: { fontSize: 11, fontWeight: "600", color: "#1a1a2e" },
-  radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#cbd5e1",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-  },
-  radioOuterActive: { borderColor: "#1565c0" },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#1565c0",
-  },
-
-  /* Permissões */
-  permissoesCard: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
-  },
-  permissaoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: "#cbd5e1",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxActive: { backgroundColor: "#1565c0", borderColor: "#1565c0" },
-  checkboxCheck: { fontSize: 12, color: "#fff", fontWeight: "700" },
-  permissaoLabel: { fontSize: 13, color: "#1a1a2e" },
-
-  /* Resumo */
-  resumoCard: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-  },
-  resumoTop: { flexDirection: "row", gap: 10, marginBottom: 14 },
-  resumoAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#e8e0f7",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  resumoAvatarEmoji: { fontSize: 28 },
-  resumoInfo: { flex: 1 },
-  resumoInfoRight: { flex: 1 },
-  resumoInfoLabel: { fontSize: 10, color: "#94a3b8", marginBottom: 1 },
-  resumoInfoValue: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#1a1a2e",
-    marginBottom: 6,
-  },
-  resumoGrid: { gap: 8 },
-  resumoGridItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  resumoGridLabel: { fontSize: 11, color: "#94a3b8" },
-  resumoGridValue: { fontSize: 12, fontWeight: "600", color: "#1a1a2e" },
-  statusAtivo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#dcfce7",
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#22c55e",
-  },
-  statusAtivoText: { fontSize: 11, fontWeight: "600", color: "#16a34a" },
-  tipoBadge: {
-    backgroundColor: "#e0f2fe",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  tipoBadgeText: { fontSize: 11, fontWeight: "600", color: "#0284c7" },
-
-  /* Permissões confirm */
-  permissoesCardConfirm: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
-  },
-  permissaoConfirmRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
-  },
-  permissaoConfirmIcon: { fontSize: 18, width: 24, textAlign: "center" },
-  permissaoConfirmLabel: { flex: 1, fontSize: 13, color: "#1a1a2e" },
-  permissaoCheck: { fontSize: 16 },
-
-  /* Bottom Nav */
-  bottomNav: {
-    flexDirection: "row",
-    backgroundColor: "#7ec8e3",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.06)",
-  },
-  navItem: { alignItems: "center", gap: 2 },
-  navItemActive: {},
-  navItemCenter: {
+  tipoCartaoAtivo: { borderColor: cores.marca.azul, backgroundColor: cores.superficie.suave },
+  tipoIcone: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: -20,
-    elevation: 4,
+    borderRadius: raio.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  navPlus: { fontSize: 28, color: "#1a1a2e", lineHeight: 32 },
-  navIcon: { fontSize: 20 },
-  navLabel: { fontSize: 10, fontWeight: "500", color: "#1a3a5c" },
-  navLabelActive: { fontWeight: "700", color: "#1a1a2e" },
+  tipoIconeUser: { backgroundColor: cores.superficie.azul },
+  tipoIconeAdmin: { backgroundColor: cores.marca.azul },
+  tipoInfo: { flex: 1, gap: 2 },
+  tipoNome: { ...tipografia.corpoForte, color: cores.texto.principal },
+  tipoDesc: { ...tipografia.legendaNormal, color: cores.texto.secundario },
+  radio: {
+    width: 24,
+    height: 24,
+    borderRadius: raio.pill,
+    borderWidth: 2,
+    borderColor: cores.borda.forte,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  radioAtivo: { borderColor: cores.marca.azul },
+  radioPonto: {
+    width: 12,
+    height: 12,
+    borderRadius: raio.pill,
+    backgroundColor: cores.marca.azul,
+  },
+
+  permissoes: {
+    backgroundColor: cores.superficie.suave,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    padding: espaco['4'],
+    gap: espaco['3'],
+  },
+  permissoesTitulo: { ...tipografia.corpoForte, color: cores.texto.principal },
+  permissao: { flexDirection: 'row', alignItems: 'center', gap: espaco['2'] },
+  permissaoTexto: { ...tipografia.corpoPequeno, color: cores.texto.principal, flex: 1 },
+
+  resumo: {
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    padding: espaco['4'],
+    gap: espaco['3'],
+  },
+  resumoTopo: { flexDirection: 'row', alignItems: 'center', gap: espaco['3'] },
+  resumoInfo: { flex: 1, gap: 2 },
+  resumoNome: { ...tipografia.tituloSecao, color: cores.texto.principal },
+  resumoEmail: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  divisor: { height: 1, backgroundColor: cores.borda.suave },
+  resumoLinha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: espaco['3'],
+  },
+  resumoRotulo: { ...tipografia.legendaNormal, color: cores.texto.secundario },
+  resumoValor: { ...tipografia.corpoPequeno, color: cores.texto.principal, textAlign: 'right', flexShrink: 1 },
+
+  aviso: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espaco['2'],
+    backgroundColor: cores.superficie.azul,
+    borderRadius: raio['2'],
+    padding: espaco['3'],
+  },
+  avisoTexto: { ...tipografia.corpoPequeno, color: cores.texto.secundario, flex: 1 },
+
+  botoes: { flexDirection: 'row', gap: espaco['3'] },
+  botaoMetade: { flex: 1 },
 });

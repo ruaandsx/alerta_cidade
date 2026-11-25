@@ -1,14 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Image } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
+import BarraInferior from '../components/BarraInferior';
+import BotaoIcone from '../components/BotaoIcone';
+import CardOcorrencia from '../components/CardOcorrencia';
+import Chip from '../components/Chip';
+import Header from '../components/Header';
+import { Carregando, ErroLista, Vazio } from '../components/Estados';
+import {
+  FONTE_MAXIMA,
+  cores,
+  elevacao,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE, type NomeIcone } from '../theme/icones';
 import {
   listarOcorrencias,
   obterEstatisticas,
   Ocorrencia,
-  tituloCategoria,
-  emojiCategoria,
-  enderecoOcorrencia,
   Estatisticas,
 } from '../services/ocorrenciaService';
 import { fonteImagem, FonteImagem } from '../services/api';
@@ -19,12 +33,22 @@ type Props = { navigation?: any };
 
 const filtros = ['Todas', 'Em andamento', 'Pendentes', 'Resolvidas'];
 
+type Cartao = {
+  valor: number;
+  rotulo: string;
+  icone: NomeIcone;
+  fundo: string;
+  cor: string;
+};
+
 export default function AdminHomeScreen({ navigation }: Props) {
   const [filtroAtivo, setFiltroAtivo] = useState('Todas');
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [imagens, setImagens] = useState<Record<number, FonteImagem | null>>({});
   const [estatisticas, setEstatisticas] = useState<Estatisticas | null>(null);
   const [totalUsuarios, setTotalUsuarios] = useState(0);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState(false);
   const { usuario } = useUsuarioLogado();
 
   useEffect(() => {
@@ -42,6 +66,8 @@ export default function AdminHomeScreen({ navigation }: Props) {
 
   async function carregarTudo() {
     try {
+      setErro(false);
+
       const [ocorrenciasData, usuariosData, estatisticasData] = await Promise.all([
         listarOcorrencias({ size: 100 }),
         listarUsuarios().catch(() => []),
@@ -61,6 +87,9 @@ export default function AdminHomeScreen({ navigation }: Props) {
       setImagens(Object.fromEntries(entradas));
     } catch (e) {
       console.log('Erro ao carregar dashboard admin:', e);
+      setErro(true);
+    } finally {
+      setCarregando(false);
     }
   }
 
@@ -74,211 +103,198 @@ export default function AdminHomeScreen({ navigation }: Props) {
     return true;
   }
 
-  function traduzirStatus(status?: string) {
-    if (status === 'RECEBIDO') return 'Pendente';
-    if (status === 'EM_ANALISE') return 'Em análise';
-    if (status === 'EM_ANDAMENTO') return 'Em andamento';
-    if (status === 'RESOLVIDO') return 'Resolvido';
-    return 'Pendente';
-  }
-
-  function corDoStatus(status?: string) {
-    if (status === 'RESOLVIDO') return '#22c55e';
-    if (status === 'EM_ANDAMENTO') return '#7c3aed';
-    if (status === 'EM_ANALISE') return '#f59e0b';
-    return '#ef4444';
-  }
-
   const ocorrenciasFiltradas = ocorrencias.filter(statusNaAba);
 
-  const pendentes = estatisticas?.porStatus?.RECEBIDO ?? ocorrencias.filter((o) => o.status === 'RECEBIDO').length;
+  const pendentes =
+    estatisticas?.porStatus?.RECEBIDO ?? ocorrencias.filter((o) => o.status === 'RECEBIDO').length;
   const andamento =
     (estatisticas?.porStatus?.EM_ANALISE || 0) + (estatisticas?.porStatus?.EM_ANDAMENTO || 0);
-  const resolvidas = estatisticas?.porStatus?.RESOLVIDO ?? ocorrencias.filter((o) => o.status === 'RESOLVIDO').length;
+  const resolvidas =
+    estatisticas?.porStatus?.RESOLVIDO ?? ocorrencias.filter((o) => o.status === 'RESOLVIDO').length;
   const total = estatisticas?.total ?? ocorrencias.length;
+
+  const cartoes: Cartao[] = [
+    {
+      valor: total,
+      rotulo: 'Ocorrências recebidas',
+      icone: ICONE.documento,
+      fundo: cores.superficie.azul,
+      cor: cores.marca.azul,
+    },
+    {
+      valor: andamento,
+      rotulo: 'Em andamento',
+      icone: 'hammer-outline',
+      fundo: cores.status.andamento.fundo,
+      cor: cores.status.andamento.texto,
+    },
+    {
+      valor: resolvidas,
+      rotulo: 'Resolvidas',
+      icone: ICONE.resolvido,
+      fundo: cores.status.resolvido.fundo,
+      cor: cores.status.resolvido.texto,
+    },
+    {
+      valor: pendentes,
+      rotulo: 'Pendentes',
+      icone: ICONE.pendente,
+      fundo: cores.estado.avisoFundo,
+      cor: cores.estado.avisoTexto,
+    },
+    {
+      valor: totalUsuarios,
+      rotulo: 'Usuários',
+      icone: ICONE.usuarios,
+      fundo: cores.superficie.media,
+      cor: cores.marca.azulEscuro,
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      <View style={styles.header}>
-        <View style={styles.appNameRow}>
-          <Text style={styles.appNameBlue}>Observa</Text>
-          <Text style={styles.appNameGold}>Cidade</Text>
-          <View style={styles.admBadge}><Text style={styles.admBadgeText}>ADM</Text></View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.assistenteBtn}
-          onPress={() => navigation?.navigate('Assistente')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.assistenteIcon}>💬</Text>
-          <Text style={styles.assistenteLabel}>Assistente</Text>
-        </TouchableOpacity>
-      </View>
+      <Header
+        adm
+        acoes={
+          <>
+            <BotaoIcone
+              icone={ICONE.atualizar}
+              rotulo="Atualizar dados"
+              onPress={carregarTudo}
+            />
+            <BotaoIcone
+              icone={ICONE.assistente}
+              rotulo="Abrir assistente"
+              onPress={() => navigation?.navigate('Assistente')}
+              variante="azul"
+            />
+          </>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.welcomeBanner}>
-          <View style={styles.welcomeLeft}>
-            <Text style={styles.welcomeTitle}>Olá, {usuario?.nome || 'administrador'}!</Text>
-            <Text style={styles.welcomeDesc}>Acompanhe as ocorrências reais em tempo quase real.</Text>
-          </View>
-          <TouchableOpacity style={styles.refreshBtn} onPress={carregarTudo}>
-            <Text style={styles.refreshText}>↻ Atualizar</Text>
-          </TouchableOpacity>
+        <View style={styles.saudacao}>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.saudacaoTitulo}>
+            Olá, {usuario?.nome || 'administrador'}!
+          </Text>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.saudacaoDesc}>
+            Acompanhe as ocorrências da cidade em tempo quase real.
+          </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Visão geral</Text>
-        <View style={styles.statsRow}>
-          {[
-            { valor: total, label: 'Ocorrências\nrecebidas', icon: '📋', bg: '#e0f2fe' },
-            { valor: andamento, label: 'Em\nandamento', icon: '🔎', bg: '#fef9c3' },
-            { valor: resolvidas, label: 'Resolvidas', icon: '✅', bg: '#dcfce7' },
-            { valor: pendentes, label: 'Pendentes', icon: '⚠️', bg: '#fee2e2' },
-            { valor: totalUsuarios, label: 'Usuários', icon: '👥', bg: '#f3e8ff' },
-          ].map((s, i) => (
-            <View key={i} style={styles.statCard}>
-              <View style={[styles.statIconBox, { backgroundColor: s.bg }]}>
-                <Text style={styles.statEmoji}>{s.icon}</Text>
+        <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.secaoTitulo}>
+          Visão geral
+        </Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.cartoes}
+        >
+          {cartoes.map((cartao) => (
+            <View key={cartao.rotulo} style={styles.cartao}>
+              <View style={[styles.cartaoIcone, { backgroundColor: cartao.fundo }]}>
+                <Ionicons name={cartao.icone} size={layout.icone['2']} color={cartao.cor} />
               </View>
-              <Text style={styles.statValor}>{s.valor}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.cartaoValor}>
+                {cartao.valor}
+              </Text>
+              <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.cartaoRotulo}>
+                {cartao.rotulo}
+              </Text>
             </View>
           ))}
-        </View>
-
-        <Text style={styles.sectionTitle}>Acompanhamento</Text>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtrosScroll}>
-          <View style={styles.filtrosRow}>
-            {filtros.map((f) => (
-              <TouchableOpacity
-                key={f}
-                style={[styles.filtroBtn, filtroAtivo === f && styles.filtroBtnActive]}
-                onPress={() => setFiltroAtivo(f)}
-              >
-                <Text style={[styles.filtroText, filtroAtivo === f && styles.filtroTextActive]}>
-                  {f}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </ScrollView>
 
-        {ocorrenciasFiltradas.length === 0 && (
-          <Text style={styles.emptyText}>Nenhuma ocorrência encontrada.</Text>
+        <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.secaoTitulo}>
+          Acompanhamento
+        </Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtros}
+        >
+          {filtros.map((filtro) => (
+            <Chip
+              key={filtro}
+              rotulo={filtro}
+              selecionado={filtroAtivo === filtro}
+              onPress={() => setFiltroAtivo(filtro)}
+            />
+          ))}
+        </ScrollView>
+
+        {carregando ? (
+          <Carregando texto="Carregando ocorrências..." />
+        ) : erro ? (
+          <ErroLista
+            descricao="Não conseguimos buscar a fila de ocorrências."
+            aoTentarDeNovo={carregarTudo}
+          />
+        ) : ocorrenciasFiltradas.length === 0 ? (
+          <Vazio
+            titulo="Nenhuma ocorrência neste filtro"
+            descricao="Troque o filtro acima para ver outras ocorrências."
+          />
+        ) : (
+          <View style={styles.lista}>
+            {ocorrenciasFiltradas.map((item) => (
+              <CardOcorrencia
+                key={item.id}
+                compacto
+                item={item}
+                imagem={item.id ? imagens[item.id] : null}
+                onPress={() => navigation?.navigate('AdminReportDetail', { item })}
+              />
+            ))}
+          </View>
         )}
-
-        {ocorrenciasFiltradas.map((item) => {
-          const imagem = item.id ? imagens[item.id] : null;
-
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.ocorrenciaCard}
-              onPress={() => navigation?.navigate('AdminReportDetail', { item })}
-              activeOpacity={0.8}
-            >
-              <View style={styles.thumbnail}>
-                {imagem ? (
-                  <Image source={imagem} style={styles.thumbnailImage} />
-                ) : (
-                  <Text style={styles.thumbnailEmoji}>{emojiCategoria(item.categoria)}</Text>
-                )}
-              </View>
-              <View style={styles.ocorrenciaInfo}>
-                <Text style={styles.ocorrenciaTitulo}>{tituloCategoria(item.categoria)}</Text>
-                <Text style={styles.ocorrenciaEndereco}>{enderecoOcorrencia(item)}</Text>
-                <Text style={styles.ocorrenciaHora}>
-                  {item.dataCriacao ? new Date(item.dataCriacao).toLocaleString('pt-BR') : ''}
-                </Text>
-              </View>
-              <View style={styles.ocorrenciaRight}>
-                <View style={styles.statusRow}>
-                  <View style={[styles.statusDot, { backgroundColor: corDoStatus(item.status) }]} />
-                  <Text style={[styles.statusText, { color: corDoStatus(item.status) }]}>
-                    {traduzirStatus(item.status)}
-                  </Text>
-                </View>
-                <Text style={styles.ocorrenciaArrow}>›</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
       </ScrollView>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={[styles.navItem, styles.navItemActive]}>
-          <Text style={styles.navIcon}>🏠</Text>
-          <Text style={[styles.navLabel, styles.navLabelActive]}>Início</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('AdminHome')}>
-          <Text style={styles.navIcon}>📋</Text>
-          <Text style={styles.navLabel}>Ocorrências</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('AdminUsers')}>
-          <Text style={styles.navIcon}>👥</Text>
-          <Text style={styles.navLabel}>Usuários</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('AdminProfile')}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
+      <BarraInferior tipo="admin" ativo="inicio" navigation={navigation} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#7ec8e3' },
-  header: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  appNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  appNameBlue: { fontSize: 24, fontWeight: '700', color: '#1565c0' },
-  appNameGold: { fontSize: 24, fontWeight: '700', color: '#c8860a' },
-  assistenteBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 11, paddingVertical: 7 },
-  assistenteIcon: { fontSize: 15 },
-  assistenteLabel: { fontSize: 11, fontWeight: '800', color: '#1565c0' },
-  admBadge: { backgroundColor: '#1565c0', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
-  admBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
-  scroll: { paddingHorizontal: 14, paddingBottom: 24 },
-  welcomeBanner: { backgroundColor: '#fff', borderRadius: 16, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  welcomeLeft: { flex: 1 },
-  welcomeTitle: { fontSize: 15, fontWeight: '800', color: '#1a1a2e', marginBottom: 4 },
-  welcomeDesc: { fontSize: 11, color: '#64748b', lineHeight: 17 },
-  refreshBtn: { backgroundColor: '#d6eef8', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
-  refreshText: { fontSize: 12, color: '#1565c0', fontWeight: '700' },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginBottom: 10 },
-  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  statCard: { width: '31%', backgroundColor: '#fff', borderRadius: 12, padding: 10, alignItems: 'center', gap: 4 },
-  statIconBox: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  statEmoji: { fontSize: 16 },
-  statValor: { fontSize: 18, fontWeight: '800', color: '#1a1a2e' },
-  statLabel: { fontSize: 9, color: '#64748b', textAlign: 'center', lineHeight: 13 },
-  filtrosScroll: { marginBottom: 12 },
-  filtrosRow: { flexDirection: 'row', gap: 8, paddingRight: 8 },
-  filtroBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#fff' },
-  filtroBtnActive: { backgroundColor: '#1565c0' },
-  filtroText: { fontSize: 12, fontWeight: '500', color: '#64748b' },
-  filtroTextActive: { color: '#fff', fontWeight: '700' },
-  emptyText: { textAlign: 'center', color: '#64748b', marginVertical: 20 },
-  ocorrenciaCard: { backgroundColor: '#fff', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  thumbnail: { width: 60, height: 60, borderRadius: 10, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#d6eef8' },
-  thumbnailImage: { width: '100%', height: '100%' },
-  thumbnailEmoji: { fontSize: 28 },
-  ocorrenciaInfo: { flex: 1 },
-  ocorrenciaTitulo: { fontSize: 13, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  ocorrenciaEndereco: { fontSize: 11, color: '#64748b', marginBottom: 2 },
-  ocorrenciaHora: { fontSize: 10, color: '#94a3b8' },
-  ocorrenciaRight: { alignItems: 'flex-end', gap: 8 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 11, fontWeight: '600' },
-  ocorrenciaArrow: { fontSize: 20, color: '#94a3b8' },
-  bottomNav: { flexDirection: 'row', backgroundColor: '#7ec8e3', paddingVertical: 10, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)' },
-  navItem: { alignItems: 'center', gap: 2 },
-  navItemActive: {},
-  navIcon: { fontSize: 20 },
-  navLabel: { fontSize: 10, fontWeight: '500', color: '#1a3a5c' },
-  navLabelActive: { fontWeight: '700', color: '#1a1a2e' },
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['6'],
+  },
+  saudacao: { gap: espaco['1'], marginBottom: espaco['6'] },
+  saudacaoTitulo: { ...tipografia.tituloTela, color: cores.texto.principal },
+  saudacaoDesc: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  secaoTitulo: {
+    ...tipografia.tituloSecao,
+    color: cores.texto.principal,
+    marginBottom: espaco['3'],
+  },
+  cartoes: { gap: espaco['3'], paddingBottom: espaco['6'], paddingRight: espaco['4'] },
+  cartao: {
+    width: 148,
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    padding: espaco['4'],
+    gap: espaco['1'],
+    ...elevacao[1],
+  },
+  cartaoIcone: {
+    width: 36,
+    height: 36,
+    borderRadius: raio['2'],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: espaco['1'],
+  },
+  cartaoValor: { ...tipografia.tituloTela, color: cores.texto.principal },
+  cartaoRotulo: { ...tipografia.legenda, color: cores.texto.secundario },
+  filtros: { gap: espaco['2'], paddingBottom: espaco['4'], paddingRight: espaco['4'] },
+  lista: { gap: espaco['2'] },
 });

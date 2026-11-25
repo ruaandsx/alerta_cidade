@@ -1,24 +1,40 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ScrollView, Image } from 'react-native';
+import { Image, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+import BarraInferior from '../components/BarraInferior';
+import Header from '../components/Header';
+import {
+  FONTE_MAXIMA,
+  cores,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE, type NomeIcone } from '../theme/icones';
 
 type Props = { navigation?: any };
 
-const features = [
+const RECURSOS: { icone: NomeIcone; titulo: string; descricao: string }[] = [
   {
-    icon: '📢',
-    title: 'Participe da sua cidade',
-    desc: 'Envie ocorrências de problemas no seu bairro e ajude a tornar sua cidade melhor para todos.',
+    icone: 'megaphone-outline',
+    titulo: 'Participe da sua cidade',
+    descricao:
+      'Registre problemas do seu bairro com foto, localização e descrição, e ajude a cidade a melhorar.',
   },
   {
-    icon: '✅',
-    title: 'Acompanhamento fácil',
-    desc: 'Acompanhe as suas ocorrências, e também veja as da população.',
+    icone: 'checkmark-done-outline',
+    titulo: 'Acompanhe cada etapa',
+    descricao:
+      'Veja o status das suas ocorrências e acompanhe as respostas e os comentários da comunidade.',
   },
   {
-    icon: '👥',
-    title: 'Transparência e confiança',
-    desc: 'Promovemos a transparência e confiança com as suas ocorrências e damos voz aos cidadões.',
+    icone: 'people-outline',
+    titulo: 'Transparência e confiança',
+    descricao:
+      'Tudo fica registrado com protocolo e histórico, dando voz ao cidadão e clareza ao atendimento.',
   },
 ];
 
@@ -27,148 +43,157 @@ export default function AboutScreen({ navigation }: Props) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()} activeOpacity={0.7}>
-          <Text style={styles.backArrow}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Sobre o ObservaCidade</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <Header
+        variante="tela"
+        titulo="Sobre o ObservaCidade"
+        onVoltar={() => navigation?.goBack?.()}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.hero}>
+          <View style={styles.logoWrapper}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+              accessibilityLabel="Logo do Observa Cidade"
+            />
+          </View>
 
-        {/* Logo */}
-        <View style={styles.logoWrapper}>
-          <Image
-            source={require('../../assets/logo.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
+          <View style={styles.marca}>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.marcaAzul}>
+              Observa
+            </Text>
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.marcaDourada}>
+              Cidade
+            </Text>
+          </View>
+
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.slogan}>
+            Sua cidade melhor começa com você.
+          </Text>
         </View>
 
-        {/* Nome app */}
-        <View style={styles.appNameRow}>
-          <Text style={styles.appNameBlue}>Observa</Text>
-          <Text style={styles.appNameGold}>Cidade</Text>
-        </View>
-
-        <Text style={styles.slogan}>sua cidade melhor começa com você.</Text>
-
-        {/* Card O que é */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>O que é o ObservaCidade?</Text>
-          <Text style={styles.cardDesc}>
-            O ObservaCidade é um aplicativo criado para aproximar a população da gestão pública, permitindo que você informe problemas urbanos de forma simples e rápida.
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.cardTitulo}>
+            O que é o ObservaCidade?
+          </Text>
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.cardTexto}>
+            É um aplicativo que aproxima a população da gestão pública. Você informa problemas
+            urbanos de forma simples e rápida, e a equipe responsável acompanha cada registro.
           </Text>
 
-          {/* Features */}
-          <View style={styles.featuresWrapper}>
-            {features.map((f, i) => (
-              <View key={i} style={styles.featureRow}>
-                <View style={styles.featureIcon}>
-                  <Text style={styles.featureEmoji}>{f.icon}</Text>
+          <View style={styles.recursos}>
+            {RECURSOS.map((item) => (
+              <View key={item.titulo} style={styles.recurso}>
+                <View style={styles.recursoIcone}>
+                  <Ionicons name={item.icone} size={layout.icone['2']} color={cores.marca.azul} />
                 </View>
-                <View style={styles.featureText}>
-                  <Text style={styles.featureTitle}>{f.title}</Text>
-                  <Text style={styles.featureDesc}>{f.desc}</Text>
+
+                <View style={styles.recursoTexto}>
+                  <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.recursoTitulo}>
+                    {item.titulo}
+                  </Text>
+                  <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.recursoDesc}>
+                    {item.descricao}
+                  </Text>
                 </View>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Card compromisso */}
-        <View style={styles.compromissoCard}>
-          <Text style={styles.compromissoTitle}>Nosso compromisso</Text>
-          <Text style={styles.compromissoDesc}>
-            Trabalhamos todos os dias para construir cidades mais limpas, seguras e organizadas, com a colaboração de cada cidadão.
-          </Text>
-
-          <View style={styles.participacaoRow}>
-            <View style={styles.participacaoIcon}>
-              <Text style={styles.participacaoEmoji}>🤍</Text>
-            </View>
-            <View style={styles.participacaoText}>
-              <Text style={styles.participacaoTitle}>Sua participação faz a diferença!</Text>
-              <Text style={styles.participacaoDesc}>Juntos, podemos construir uma cidade melhor para todos.</Text>
-            </View>
+        <View style={styles.compromisso}>
+          <View style={styles.compromissoTopo}>
+            <Ionicons name={ICONE.escudoAtivo} size={layout.icone['3']} color={cores.marca.douradoTexto} />
+            <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.compromissoTitulo}>
+              Nosso compromisso
+            </Text>
           </View>
+
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.compromissoTexto}>
+            Trabalhamos todos os dias por cidades mais limpas, seguras e organizadas, com a
+            colaboração de cada cidadão. Sua participação faz a diferença.
+          </Text>
         </View>
 
+        <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.versao}>
+          ObservaCidade · versão 1.0
+        </Text>
       </ScrollView>
 
-      {/* Bottom Nav */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('Home')} activeOpacity={0.7}>
-          <Text style={styles.navIcon}>🏠</Text>
-          <Text style={styles.navLabel}>Inicio</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItemCenter} onPress={() => navigation?.navigate('NewReport')} activeOpacity={0.7}>
-          <Text style={styles.navPlus}>+</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation?.navigate('Profile')} activeOpacity={0.7}>
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
-
+      <BarraInferior ativo="perfil" navigation={navigation} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:           { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['8'],
+    gap: espaco['5'],
+    alignItems: 'center',
+  },
+  hero: { alignItems: 'center', gap: espaco['1'] },
+  logoWrapper: {
+    width: 128,
+    height: 128,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.azul,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: espaco['2'],
+  },
+  logo: { width: 104, height: 104 },
+  marca: { flexDirection: 'row', alignItems: 'baseline' },
+  marcaAzul: { ...tipografia.marca, color: cores.marca.azul },
+  marcaDourada: { ...tipografia.marca, color: cores.marca.dourado },
+  slogan: {
+    ...tipografia.corpoPequeno,
+    color: cores.texto.secundario,
+    textAlign: 'center',
+  },
 
-  /* Header */
-  header:              { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
-  backArrow:           { fontSize: 22, color: '#1a1a2e' },
-  headerTitle:         { fontSize: 18, fontWeight: '700', color: '#1a1a2e' },
+  card: {
+    width: '100%',
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    padding: espaco['4'],
+    gap: espaco['3'],
+  },
+  cardTitulo: { ...tipografia.tituloSecao, color: cores.texto.principal },
+  cardTexto: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  recursos: { gap: espaco['4'] },
+  recurso: { flexDirection: 'row', alignItems: 'flex-start', gap: espaco['3'] },
+  recursoIcone: {
+    width: 40,
+    height: 40,
+    borderRadius: raio.pill,
+    backgroundColor: cores.superficie.azul,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  recursoTexto: { flex: 1, gap: 2 },
+  recursoTitulo: { ...tipografia.corpoForte, color: cores.marca.azulEscuro },
+  recursoDesc: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
 
-  scroll:              { paddingHorizontal: 16, paddingBottom: 24, alignItems: 'center' },
+  compromisso: {
+    width: '100%',
+    backgroundColor: cores.superficie.destaque,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.destaque,
+    padding: espaco['4'],
+    gap: espaco['2'],
+  },
+  compromissoTopo: { flexDirection: 'row', alignItems: 'center', gap: espaco['2'] },
+  compromissoTitulo: { ...tipografia.tituloSecao, color: cores.texto.principal },
+  compromissoTexto: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
 
-  /* Logo */
-  logoWrapper:         { marginTop: 8, marginBottom: 8 },
-  logoImage:           { width: 130, height: 130 },
-
-  /* Nome */
-  appNameRow:          { flexDirection: 'row', alignItems: 'baseline', marginBottom: 6 },
-  appNameBlue:         { fontSize: 34, fontWeight: '700', color: '#1565c0', letterSpacing: -0.3 },
-  appNameGold:         { fontSize: 34, fontWeight: '700', color: '#c8860a', letterSpacing: -0.3 },
-
-  /* Slogan */
-  slogan:              { fontSize: 15, fontWeight: '600', color: '#1a1a2e', marginBottom: 20, textAlign: 'center' },
-
-  /* Card o que é */
-  card:                { width: '100%', backgroundColor: '#d6eef8', borderRadius: 16, padding: 16, marginBottom: 16 },
-  cardTitle:           { fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 10 },
-  cardDesc:            { fontSize: 13, color: '#334155', lineHeight: 20, marginBottom: 14 },
-
-  /* Features */
-  featuresWrapper:     { gap: 14 },
-  featureRow:          { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  featureIcon:         { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  featureEmoji:        { fontSize: 18 },
-  featureText:         { flex: 1 },
-  featureTitle:        { fontSize: 14, fontWeight: '700', color: '#1565c0', marginBottom: 3 },
-  featureDesc:         { fontSize: 12, color: '#334155', lineHeight: 18 },
-
-  /* Card compromisso */
-  compromissoCard:     { width: '100%', backgroundColor: '#f8f4e8', borderRadius: 16, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: '#e8dfc0' },
-  compromissoTitle:    { fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 },
-  compromissoDesc:     { fontSize: 13, color: '#334155', lineHeight: 20, marginBottom: 14 },
-  participacaoRow:     { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  participacaoIcon:    { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: '#e8dfc0' },
-  participacaoEmoji:   { fontSize: 18 },
-  participacaoText:    { flex: 1 },
-  participacaoTitle:   { fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 3 },
-  participacaoDesc:    { fontSize: 12, color: '#64748b', lineHeight: 18 },
-
-  /* Bottom Nav */
-  bottomNav:           { flexDirection: 'row', backgroundColor: '#7ec8e3', paddingVertical: 10, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)' },
-  navItem:             { alignItems: 'center', gap: 2 },
-  navItemCenter:       { width: 52, height: 52, borderRadius: 26, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', marginTop: -24, elevation: 4 },
-  navPlus:             { fontSize: 30, color: '#1a1a2e', lineHeight: 34 },
-  navIcon:             { fontSize: 22 },
-  navLabel:            { fontSize: 11, fontWeight: '500', color: '#1a3a5c' },
+  versao: { ...tipografia.legendaNormal, color: cores.texto.placeholder },
 });

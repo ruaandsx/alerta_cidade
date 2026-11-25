@@ -1,105 +1,254 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
+import BotaoIcone from '../components/BotaoIcone';
+import Header from '../components/Header';
+import { Carregando, ErroLista, Vazio } from '../components/Estados';
+import {
+  FONTE_MAXIMA,
+  cores,
+  espaco,
+  layout,
+  raio,
+  tipografia,
+} from '../theme/tokens';
+import { ICONE, iconeStatus, type NomeIcone } from '../theme/icones';
 import {
   listarNotificacoes,
+  marcarNotificacaoComoLida,
   marcarNotificacoesComoLidas,
+  type Notificacao,
 } from '../services/ocorrenciaService';
 
-export default function NotificationScreen({ navigation }: any) {
-  const [notificacoes, setNotificacoes] = useState<any[]>([]);
+type Props = { navigation?: any };
+
+/** Cada tipo de notificação usa o mesmo par de cores do status correspondente. */
+function visualNotificacao(tipo?: string): { icone: NomeIcone; fundo: string; cor: string } {
+  switch (tipo) {
+    case 'RESOLVIDO':
+      return {
+        icone: iconeStatus('RESOLVIDO'),
+        fundo: cores.status.resolvido.fundo,
+        cor: cores.status.resolvido.texto,
+      };
+    case 'EM_ANALISE':
+      return {
+        icone: iconeStatus('EM_ANALISE'),
+        fundo: cores.status.analise.fundo,
+        cor: cores.status.analise.texto,
+      };
+    case 'EM_ANDAMENTO':
+      return {
+        icone: iconeStatus('EM_ANDAMENTO'),
+        fundo: cores.status.andamento.fundo,
+        cor: cores.status.andamento.texto,
+      };
+    case 'COMENTARIO':
+      return {
+        icone: ICONE.assistente,
+        fundo: cores.superficie.azul,
+        cor: cores.marca.azulEscuro,
+      };
+    default:
+      return {
+        icone: iconeStatus('RECEBIDO'),
+        fundo: cores.status.recebido.fundo,
+        cor: cores.status.recebido.texto,
+      };
+  }
+}
+
+function dataHora(valor?: string): string {
+  if (!valor) return '';
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return '';
+  return data.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export default function NotificationScreen({ navigation }: Props) {
+  const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
+  const [erro, setErro] = useState(false);
+  const [marcando, setMarcando] = useState(false);
 
   useEffect(() => {
     carregar();
 
-    const unsubscribe = navigation?.addListener?.('focus', carregar);
-
+    const unsubscribe = navigation?.addListener?.('focus', () => carregar(false));
     return unsubscribe;
   }, [navigation]);
 
-  async function carregar() {
+  async function carregar(mostrarLoading = true) {
     try {
-      setCarregando(true);
+      if (mostrarLoading) setCarregando(true);
+      setErro(false);
 
-      const data = await listarNotificacoes(true);
-      setNotificacoes(data || []);
-
-      if ((data || []).some((n) => n.lida === false)) {
-        setTimeout(() => {
-          marcarNotificacoesComoLidas().catch(() => {});
-        }, 1500);
-      }
-    } catch (error) {
-      console.log('Erro ao carregar notificações:', error);
+      const lista = await listarNotificacoes(true);
+      setNotificacoes(lista || []);
+    } catch (e) {
+      console.log('Erro ao carregar notificações:', e);
       setNotificacoes([]);
+      setErro(true);
     } finally {
       setCarregando(false);
+      setAtualizando(false);
     }
   }
 
-  function cor(tipo: string) {
-    if (tipo === 'RESOLVIDO') return '#dcfce7';
-    if (tipo === 'COMENTARIO') return '#d6eef8';
-    if (tipo === 'EM_ANALISE') return '#fef3c7';
-    if (tipo === 'EM_ANDAMENTO') return '#ede9fe';
-    return '#f8f4e8';
+  async function abrir(item: Notificacao) {
+    try {
+      if (item.lida === false) {
+        await marcarNotificacaoComoLida(item.id);
+        setNotificacoes((prev) =>
+          prev.map((n) => (n.id === item.id ? { ...n, lida: true } : n)),
+        );
+      }
+    } catch {
+      // não bloqueia a navegação
+    }
+
+    if (item.ocorrenciaId) {
+      navigation?.navigate?.('ReportDetail', { item: { id: item.ocorrenciaId } });
+    }
   }
+
+  async function marcarTodas() {
+    try {
+      setMarcando(true);
+      await marcarNotificacoesComoLidas();
+      setNotificacoes((prev) => prev.map((n) => ({ ...n, lida: true })));
+    } catch {
+      // silencioso: o usuário pode tocar de novo
+    } finally {
+      setMarcando(false);
+    }
+  }
+
+  const naoLidas = notificacoes.filter((n) => n.lida === false).length;
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()}>
-          <Text style={styles.back}>←</Text>
-        </TouchableOpacity>
+      <StatusBar barStyle="dark-content" />
 
-        <Text style={styles.title}>Notificações</Text>
+      <Header
+        variante="tela"
+        titulo="Notificações"
+        subtitulo={naoLidas > 0 ? `${naoLidas} não lida${naoLidas > 1 ? 's' : ''}` : 'Tudo em dia'}
+        onVoltar={() => navigation?.goBack?.()}
+        acoes={
+          naoLidas > 0 ? (
+            <BotaoIcone
+              icone="checkmark-done-outline"
+              rotulo="Marcar todas como lidas"
+              onPress={marcando ? undefined : marcarTodas}
+            />
+          ) : undefined
+        }
+      />
 
-        <View style={{ width: 24 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {carregando && (
-          <Text style={styles.empty}>Carregando notificações...</Text>
-        )}
-
-        {!carregando && notificacoes.length === 0 && (
-          <Text style={styles.empty}>Nenhuma notificação no momento.</Text>
-        )}
-
-        {notificacoes.map((n, i) => (
-          <TouchableOpacity
-            key={n.id || i}
-            activeOpacity={0.8}
-            onPress={() => {
-              if (n.ocorrenciaId) {
-                navigation?.navigate('ReportDetail', { item: { id: n.ocorrenciaId } });
-              }
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={atualizando}
+            onRefresh={() => {
+              setAtualizando(true);
+              carregar(false);
             }}
-            style={[styles.card, { backgroundColor: cor(n.tipo) }]}
-          >
-            <View style={styles.cardTopo}>
-              <Text style={styles.cardTitle}>
-                {n.titulo || 'Atualização da ocorrência'}
-              </Text>
-              {n.lida === false && <View style={styles.naoLida} />}
-            </View>
+            colors={[cores.marca.azul]}
+            tintColor={cores.marca.azul}
+          />
+        }
+      >
+        {carregando ? (
+          <Carregando texto="Carregando notificações..." />
+        ) : erro ? (
+          <ErroLista
+            descricao="Não conseguimos buscar suas notificações."
+            aoTentarDeNovo={() => carregar()}
+          />
+        ) : notificacoes.length === 0 ? (
+          <Vazio
+            titulo="Nenhuma notificação"
+            descricao="Quando o status de uma ocorrência mudar ou alguém comentar, você fica sabendo aqui."
+            icone={ICONE.notificacoes}
+          />
+        ) : (
+          <View style={styles.lista}>
+            {notificacoes.map((item) => {
+              const visual = visualNotificacao(item.tipo);
+              const nova = item.lida === false;
 
-            <Text style={styles.text}>
-              {n.mensagem || 'Você recebeu uma nova atualização.'}
-            </Text>
+              return (
+                <Pressable
+                  key={item.id}
+                  onPress={() => abrir(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.titulo}. ${item.mensagem}`}
+                  style={({ pressed }) => [
+                    styles.card,
+                    nova && styles.cardNova,
+                    pressed && { opacity: 0.85 },
+                  ]}
+                >
+                  <View style={[styles.icone, { backgroundColor: visual.fundo }]}>
+                    <Ionicons name={visual.icone} size={layout.icone['2']} color={visual.cor} />
+                  </View>
 
-            <Text style={styles.date}>
-              {n.dataCriacao ? new Date(n.dataCriacao).toLocaleString('pt-BR') : ''}
-            </Text>
-          </TouchableOpacity>
-        ))}
+                  <View style={styles.conteudo}>
+                    <View style={styles.topo}>
+                      <Text
+                        maxFontSizeMultiplier={FONTE_MAXIMA}
+                        numberOfLines={2}
+                        style={styles.titulo}
+                      >
+                        {item.titulo || 'Atualização da ocorrência'}
+                      </Text>
 
-        <View style={styles.supportCard}>
-          <Text style={styles.cardTitle}>Suporte</Text>
-          <Text style={styles.text}>
-            Precisa de ajuda? Acesse Ajuda e suporte no seu perfil.
+                      {nova ? (
+                        <View style={styles.seloNova}>
+                          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.seloNovaTexto}>
+                            Nova
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.mensagem}>
+                      {item.mensagem || 'Você recebeu uma nova atualização.'}
+                    </Text>
+
+                    <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.data}>
+                      {dataHora(item.dataCriacao)}
+                    </Text>
+                  </View>
+
+                  {item.ocorrenciaId ? (
+                    <Ionicons
+                      name={ICONE.avancar}
+                      size={layout.icone['2']}
+                      color={cores.texto.secundario}
+                    />
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        <View style={styles.rodape}>
+          <Ionicons name={ICONE.historico} size={layout.icone['2']} color={cores.texto.secundario} />
+          <Text maxFontSizeMultiplier={FONTE_MAXIMA} style={styles.rodapeTexto}>
+            As notificações são apagadas automaticamente depois de um tempo.
           </Text>
         </View>
       </ScrollView>
@@ -108,73 +257,58 @@ export default function NotificationScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
+  container: { flex: 1, backgroundColor: cores.superficie.base },
+  scroll: {
+    paddingHorizontal: espaco['4'],
+    paddingTop: espaco['4'],
+    paddingBottom: espaco['6'],
+    gap: espaco['4'],
   },
-
-  header: {
+  lista: { gap: espaco['3'] },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espaco['3'],
+    backgroundColor: cores.superficie.base,
+    borderRadius: raio['3'],
+    borderWidth: 1,
+    borderColor: cores.borda.suave,
+    padding: espaco['4'],
+  },
+  cardNova: {
+    backgroundColor: cores.superficie.suave,
+    borderColor: cores.marca.azul,
+  },
+  icone: {
+    width: 44,
+    height: 44,
+    borderRadius: raio.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  conteudo: { flex: 1, gap: espaco['1'] },
+  topo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: espaco['2'],
+  },
+  titulo: { ...tipografia.corpoForte, color: cores.texto.principal, flex: 1 },
+  seloNova: {
+    backgroundColor: cores.marca.azul,
+    borderRadius: raio.pill,
+    paddingHorizontal: espaco['2'],
+    paddingVertical: 2,
+  },
+  seloNovaTexto: { ...tipografia.legenda, color: cores.texto.inverso },
+  mensagem: { ...tipografia.corpoPequeno, color: cores.texto.secundario },
+  data: { ...tipografia.legendaNormal, color: cores.texto.placeholder },
+  rodape: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
+    gap: espaco['2'],
+    paddingHorizontal: espaco['2'],
+    paddingTop: espaco['2'],
   },
-
-  back: {
-    fontSize: 24,
-    color: '#1a1a2e',
-  },
-
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1a1a2e',
-  },
-
-  scroll: {
-    padding: 16,
-  },
-
-  empty: {
-    textAlign: 'center',
-    color: '#64748b',
-    marginTop: 24,
-  },
-
-  card: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-
-  cardTopo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  naoLida: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' },
-
-  supportCard: {
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 8,
-    backgroundColor: '#d6eef8',
-  },
-
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1a1a2e',
-    marginBottom: 4,
-  },
-
-  text: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 19,
-  },
-
-  date: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 8,
-  },
+  rodapeTexto: { ...tipografia.legendaNormal, color: cores.texto.secundario, flex: 1 },
 });
